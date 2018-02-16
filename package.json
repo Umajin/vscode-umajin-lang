@@ -21,6 +21,10 @@
             "language": "umajin",
             "scopeName": "source.umajin",
             "path": "./syntaxes/umajin.tmLanguage.json"
+        }],
+        "snippets": [{
+            "language": "umajin",
+            "path": "./snippets/umajin.json"
         }]
     }
 }

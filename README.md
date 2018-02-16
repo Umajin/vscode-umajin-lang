@@ -6,7 +6,8 @@ A Visual Studio Code extension that add support for the Umajin language.
 
 This extension is in its early days, so not many features at the moment.
 
-* Basic syntax highlighting for umajin (.u) sources
+* Basic syntax highlighting for umajin (.u) sources.
+* Code snippets.
 
 ## Release Notes
 
