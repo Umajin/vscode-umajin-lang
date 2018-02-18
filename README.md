@@ -1,4 +1,4 @@
-# Umajin for Visual Studio Code
+# Umajin Language for Visual Studio Code
 
 A Visual Studio Code extension that add support for the Umajin language.
 

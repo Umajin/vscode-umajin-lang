@@ -1,6 +1,6 @@
 {
-    "name": "umajin",
-    "displayName": "Umajin",
+    "name": "umajin-lang",
+    "displayName": "Umajin Language",
     "description": "Provide Umajin language support for Visual Studio Code.",
     "version": "0.0.1",
     "publisher": "adamharte",
