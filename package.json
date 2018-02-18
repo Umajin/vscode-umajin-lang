@@ -25,6 +25,9 @@
         "type": "git",
         "url": "https://github.com/AdamHarte/vscode-umajin-lang"
     },
+    "keywords": [
+        "multi-root ready"
+    ],
     "contributes": {
         "languages": [{
             "id": "umajin",
