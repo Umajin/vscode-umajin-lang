@@ -3,13 +3,28 @@
     "displayName": "Umajin Language",
     "description": "Provide Umajin language support for Visual Studio Code.",
     "version": "0.0.1",
+    "license": "MIT",
     "publisher": "adamharte",
-    "engines": {
-        "vscode": "^1.20.0"
+    "author": {
+        "name": "Adam Harte",
+        "email": "adam@adamharte.com",
+        "url": "http://adamharte.com"
     },
     "categories": [
         "Languages"
     ],
+    "homepage": "https://github.com/AdamHarte/vscode-umajin-lang",
+    "icon": "images/umajin-logo.png",
+    "galleryBanner": {
+        "color": "#23323d"
+    },
+    "engines": {
+        "vscode": "^1.20.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/AdamHarte/vscode-umajin-lang"
+    },
     "contributes": {
         "languages": [{
             "id": "umajin",
