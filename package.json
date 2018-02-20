@@ -16,7 +16,8 @@
     "homepage": "https://github.com/AdamHarte/vscode-umajin-lang",
     "icon": "images/umajin-logo.png",
     "galleryBanner": {
-        "color": "#23323d"
+        "color": "#23323d",
+        "theme": "light"
     },
     "engines": {
         "vscode": "^1.20.0"
