@@ -17,7 +17,7 @@
     "icon": "images/umajin-logo.png",
     "galleryBanner": {
         "color": "#23323d",
-        "theme": "light"
+        "theme": "dark"
     },
     "engines": {
         "vscode": "^1.20.0"
