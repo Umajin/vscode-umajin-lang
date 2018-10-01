@@ -8,6 +8,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Umajin engine completion, code hints and error highlighting
 - Class discovery/completion
 - Auto-includes
+- Go to definition
 
 ## [1.0.0] - 2018-02-16
 ### Added
