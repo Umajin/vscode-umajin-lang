@@ -20,7 +20,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.20.0"
+        "vscode": "^1.26.0"
     },
     "repository": {
         "type": "git",
@@ -29,21 +29,61 @@
     "keywords": [
         "multi-root ready"
     ],
+    "activationEvents": [
+        "onCommand:workbench.action.tasks.runTask"
+    ],
+    "main": "./out/src/extension",
     "contributes": {
-        "languages": [{
-            "id": "umajin",
-            "aliases": ["Umajin", "umajin"],
-            "extensions": [".u"],
-            "configuration": "./language-configuration.json"
-        }],
-        "grammars": [{
-            "language": "umajin",
-            "scopeName": "source.umajin",
-            "path": "./syntaxes/umajin.tmLanguage.json"
-        }],
-        "snippets": [{
-            "language": "umajin",
-            "path": "./snippets/umajin.json"
-        }]
+        "languages": [
+            {
+                "id": "umajin",
+                "aliases": [
+                    "Umajin",
+                    "umajin"
+                ],
+                "extensions": [
+                    ".u"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "umajin",
+                "scopeName": "source.umajin",
+                "path": "./syntaxes/umajin.tmLanguage.json"
+            }
+        ],
+        "snippets": [
+            {
+                "language": "umajin",
+                "path": "./snippets/umajin.json"
+            }
+        ],
+        "taskDefinitions": [
+            {
+                "type": "umajin-run",
+                "required": [
+                    "task"
+                ],
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The Rake task to customize"
+                    }
+                }
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "tsc -p ./",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "postinstall": "node ./node_modules/vscode/bin/install"
+    },
+    "devDependencies": {
+        "typescript": "^2.4.1",
+        "vscode": "^1.1.17",
+        "@types/node": "*"
     }
 }
