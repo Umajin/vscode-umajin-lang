@@ -1,16 +1,19 @@
-# Change Log
-All notable changes to the "umajin" extension will be documented in this file.
+# Changelog
+All notable changes to this project will be documented in this file.
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Run project (or single file) with debug-gui or VSCode console. VS Code tasks
 - Umajin engine completion, code hints and error highlighting
 - Class discovery/completion
 - Auto-includes
 - Go to definition
 
-## [1.0.0] - 2018-02-16
+## [0.0.4] - 2018-10-02
+- Run project using built in build task (Ctrl+Shift+b)
+
+## [0.0.3] - 2018-02-16
 ### Added
 - Basic syntax highlighting for umajin (.u) sources.
 - Code snippets

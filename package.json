@@ -2,7 +2,7 @@
     "name": "umajin-lang",
     "displayName": "Umajin Language",
     "description": "Provide Umajin language support for Visual Studio Code.",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "license": "MIT",
     "publisher": "adamharte",
     "author": {
