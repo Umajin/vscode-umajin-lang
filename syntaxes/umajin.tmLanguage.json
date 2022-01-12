@@ -533,10 +533,7 @@
 		},
 		"type-builtin-literals": {
 			"name": "support.type.builtin.umajin",
-			"match": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))(self|true|false|null)(?![_$[:alnum:]])(?:(?=\\.\\.\\.)|(?!\\.))"
+			"match": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))(self|true|false|null|#(dir|jit|aot|desktop|mobile|windows_os|unix|apple|linux|win32|osx|ios|android|line|file|file_path|file_name|directory|dir|dir_name|project|start_file|start_file_path|start_dir|start_dir_name|method|method_name|method_signature|type_of|intrusive_call_stack_tracing_level))(?![_$[:alnum:]])(?:(?=\\.\\.\\.)|(?!\\.))"
 		}
-
-
-
 	}
 }
