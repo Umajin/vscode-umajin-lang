@@ -2,7 +2,7 @@
 	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
 	"name": "Umajin",
 	"scopeName": "source.umajin",
-	
+
 	"patterns": [
 		{
 			"include": "#statements"
@@ -22,7 +22,7 @@
 			"match": "\\b(g_){1}([_$a-zA-Z0-9])*"
 		}
 	],
-	
+
 	"repository": {
 		"statements": {
 			"patterns": [
@@ -40,7 +40,7 @@
 				}
 			]
 		},
-		
+
 		"string": {
 			"patterns": [
 				{
@@ -102,9 +102,9 @@
 			"match": "\\\\(x[0-9A-Fa-f]{2}|[0-2][0-7]{0,2}|3[0-6][0-7]?|37[0-7]?|[4-7][0-7]?|.|$)",
 			"patterns": []
 		},
-		
-		
-		
+
+
+
 		"comment": {
 			"patterns": [
 				{
@@ -152,9 +152,9 @@
 				}
 			]
 		},
-		
-		
-		
+
+
+
 		"declaration": {
 			"patterns": [
 				{
@@ -162,7 +162,7 @@
 				}
 			]
 		},
-		
+
 		"decorator": {
 			"name": "meta.decorator.umajin",
 			"begin": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))\\@",
@@ -178,9 +178,9 @@
 				}
 			]
 		},
-		
-		
-		
+
+
+
 		"control-statement": {
 			"patterns": [
 				{
@@ -189,9 +189,9 @@
 				}
 			]
 		},
-		
-		
-		
+
+
+
 		"expression": {
 			"patterns": [
 				{
@@ -269,9 +269,9 @@
 			},
 			"patterns": []
 		},
-		
-		
-		
+
+
+
 		"identifiers": {
 			"patterns": [
 				{
@@ -365,8 +365,8 @@
 				}
 			]
 		},
-		
-		
+
+
 		"type": {
 			"patterns": [
 				{
@@ -407,7 +407,7 @@
 				}
 			]
 		},
-		
+
 		"literal": {
 			"patterns": [
 				{
@@ -522,9 +522,9 @@
 			"name": "constant.language.undefined.umajin",
 			"match": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))undefined(?![_$[:alnum:]])(?:(?=\\.\\.\\.)|(?!\\.))"
 		},
-		
+
 		"type-primitive": {
-			"match": "(?:\\(|\\s)+(accelerometer|asrfid|asrfid_device|audio|audio_recorder|barcode_filter|blendmode|bluetooth|bluetooth_characteristic|bluetooth_device|bluetooth_service|bool|box|camera|color|compass|data|database|database_sqlite|datetime|debug_support|display_2d|effect|email|file_open_dialog|finger|fingerprint_scanner|fmod_audio|fmod_audio_3d|fmod_audio_effect|fmod_event_system|globals|gps|group|hand|http|http2|ibeacon|ibeacon_listener|image|image_buffer|image_rect|image_rect_reflected|image_reflected|image_slicer|image_source|int|int16|int32|int64|int8|io|key|light|list|lite_html|locale_info|logger|map|mat4|material|mesh|metrics|model|model_animated|modifier|native_browser|native_control|native_fullscreen_video|native_image|native_maps|native_menu|native_menu_item|native_text_edit|native_video|native_webcam|nfc|nfc_device|oauth|object|path_2d|plane|polygon|primitive|program|qrcode_filter|quat|real|real32|real64|realsense_camera|render_target|script|script_js|sensors|serial_port|shape|share_data|sky_dome|sphere|sprite|streaming_texture|string|style|system|test_support|text|texture_2d|texture_buffer|text_edit|timer|tuning|tween|uint|uint16|uint32|uint64|uint8|umjfile|uniform|uniform_float|uniform_float2|uniform_float3|uniform_float4|uniform_matrix|uniform_texture|uuid|var|vec2|vec3|vec4|vertex|visobj|visobj_camera|webcam_source|websocket|wifi|window|xml_node)\\b",
+			"match": "(?:\\(|\\s)+(accelerometer|animation_elbow|animation_attachment|animation_blendspace|animation_builder|animation_knees_pelvis|animation_lookat|animation_player|animation_selector|animation_script_ik|animation_timeline|animation_twist|animation_two_joint|asrfid|asrfid_device|audio|audio_recorder|barcode_filter|blendmode|bluetooth|bluetooth_characteristic|bluetooth_device|bluetooth_service|bool|box|camera|capsule|color|compass|data|database|database_sqlite|datetime|debug_support|display_2d|effect|email|file_open_dialog|finger|fingerprint_scanner|fmod_audio|fmod_audio_3d|fmod_audio_effect|fmod_event_system|globals|gps|group|hand|http|http2|ibeacon|ibeacon_listener|image|image_buffer|image_rect|image_rect_reflected|image_reflected|image_slicer|image_source|int|int16|int32|int64|int8|io|key|light|list|lite_html|locale_info|logger|map|mat4|material|mesh|metrics|model|model_animated|modifier|native_browser|native_control|native_fullscreen_video|native_image|native_maps|native_menu|native_menu_item|native_text_edit|native_video|native_webcam|nfc|nfc_device|oauth|object|path_2d|plane|polygon|primitive|program|qrcode_filter|quat|real|real32|real64|realsense_camera|render_target|script|skeleton|script_js|sensors|serial_port|shape|share_data|sky_dome|sphere|sprite|streaming_texture|string|style|system|test_support|text|texture_2d|texture_buffer|text_edit|timer|transform|tuning|tween|uint|uint16|uint32|uint64|uint8|umjfile|uniform|uniform_float|uniform_float2|uniform_float3|uniform_float4|uniform_matrix|uniform_texture|uuid|var|vec2|vec3|vec4|vertex|visobj|visobj_camera|webcam_source|websocket|wifi|window|xml_node)\\b",
 			"captures": {
 				"1": {
 					"name": "storage.type.umajin"
@@ -533,10 +533,7 @@
 		},
 		"type-builtin-literals": {
 			"name": "support.type.builtin.umajin",
-			"match": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))(self|true|false|null)(?![_$[:alnum:]])(?:(?=\\.\\.\\.)|(?!\\.))"
+			"match": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))(self|true|false|null|#(dir|jit|aot|desktop|mobile|windows_os|unix|apple|linux|win32|osx|ios|android|line|file|file_path|file_name|directory|dir|dir_name|project|start_file|start_file_path|start_dir|start_dir_name|method|method_name|method_signature|type_of|intrusive_call_stack_tracing_level))(?![_$[:alnum:]])(?:(?=\\.\\.\\.)|(?!\\.))"
 		}
-		
-		
-		
 	}
 }
