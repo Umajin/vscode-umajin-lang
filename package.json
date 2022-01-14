@@ -5,6 +5,7 @@
     "version": "0.0.4",
     "license": "MIT",
     "publisher": "adamharte",
+    "private": false,
     "author": {
         "name": "Adam Harte",
         "email": "adam@adamharte.com",
@@ -20,11 +21,14 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.26.0"
+        "vscode": "^1.32.0"
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/AdamHarte/vscode-umajin-lang"
+        "url": "https://github.com/AdamHarte/vscode-umajin-lang.git"
+    },
+    "bug": {
+        "url": "https://github.com/AdamHarte/vscode-umajin-lang/issues"
     },
     "keywords": [
         "multi-root ready"
@@ -76,14 +80,14 @@
         ]
     },
     "scripts": {
-        "vscode:prepublish": "tsc -p ./",
+        "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./",
-        "postinstall": "node ./node_modules/vscode/bin/install"
+        "watch": "tsc -watch -p ./"
     },
     "devDependencies": {
-        "typescript": "^2.4.1",
-        "vscode": "^1.1.17",
-        "@types/node": "*"
+        "@types/node": "*",
+        "@types/vscode": "*",
+        "vscode-test": "*",
+        "typescript": "^4.5.4"
     }
 }
