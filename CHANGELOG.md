@@ -1,19 +1,81 @@
 # Changelog
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Umajin engine completion, code hints and error highlighting
-- Class discovery/completion
-- Auto-includes
-- Go to definition
+
+- Report project parsing failure
+
+- Massive project-wide auto-fix
+
+- Signature help (overload selection)
+
+- Auto-formatting
+
+- Improved code completion
+
+- Improved performance
+
+
+## [1.0.0] - 2022-05-18
+
+### Added
+
+- Using Umajin Language Server for all sorts of goodness including but not limited to:
+
+  - Semantic highlighting
+
+  - Outline structure of the current file
+
+  - Highlighting symbol usage within the file
+
+  - Diagnostics
+
+  - Auto-fixes (code actions)
+
+  - Navigation to the definition
+
+  - Navigation to the included file (use "go to definition")
+
+  - Navigation to the base method (use "go to definition" from `override` keyword)
+
+  - Find usages of a given symbol in the whole project (use "references" from the symbol)
+
+  - Find all overrides for a given method (use "references" from `method` keyword)
+
+  - Contextual code completion
+
+- Ability to (re-)generate the Umajin Standard Library using a command
+
+- Scopes folding and brackets jumping
+
+- Filtering and highlighting of JIT/compiler output
+
+- Support for multiple projects in one folder
+
+- Simulation of all supported platforms and JIT/AOT compilation modes
+
+- A bit more code snippets
+
+### Changed
+
+- Syntax highlighting was simplified to run faster and offer early highlighting before semantic highlighting
+
+- Running the project is changed from a built-in task (Terminal -> Run Build Task) to Run and Debug (Run -> Run without Debugging)
+
+
+## [0.0.6] - 2022-03-29
+
+- Transferring the access.
+
 
 ## [0.0.4] - 2018-10-02
-- Run project using built in build task (Ctrl+Shift+b)
+
+- Run project using built-in build task (Ctrl+Shift+b)
+
 
 ## [0.0.3] - 2018-02-16
+
 ### Added
+
 - Basic syntax highlighting for umajin (.u) sources.
+
 - Code snippets

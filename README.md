@@ -2,21 +2,43 @@
 
 A Visual Studio Code extension that add support for the Umajin language.
 
+
 ## Features
 
-This extension is in its early days, so not many features at the moment.
+This extension relies on Umajin Language Server to provide support using an up-to-date object model.
 
-* Basic syntax highlighting for umajin (.u) sources.
-* Code snippets.
-* Run project using built in build task (`Ctrl + Shift + B` to create the task)
+- Semantic highlighting
 
-## Release Notes
+- Outline structure of the current file
 
-### 0.0.4
+- Highlighting symbol usage within the file
 
-Provide build task for running a Umajin project.
+- Diagnostics
 
-### 0.0.3
+- Auto-fixes (code actions)
 
-Initial release of Umajin for Visual Studio Code.
-Provides basic syntax highlighting for umajin (.u) sources
+- Navigation to the definition
+
+- Navigation to the included file (use "go to definition")
+
+- Navigation to the base method (use "go to definition" from `override` keyword)
+
+- Find usages of a given symbol in the whole project (use "references" from the symbol)
+
+- Find all overrides for a given method (use "references" from `method` keyword)
+
+- Contextual code completion
+
+- Ability to (re-)generate the Umajin Standard Library using a command
+
+- Scopes folding and brackets jumping
+
+- Running the project (use "Run and Debug")
+
+- Simulation of all supported platforms and JIT/AOT compilation modes
+
+- Filtering and highlighting of JIT/compiler output
+
+- Support for multiple projects in one folder
+
+- Code snippets

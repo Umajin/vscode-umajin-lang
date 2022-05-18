@@ -1,32 +1,50 @@
 {
-    "comments": {
-        // symbol used for single line comment. Remove this entry if your language does not support line comments
-        "lineComment": "//",
-        // symbols used for start and end a block comment. Remove this entry if your language does not support block comments
-        "blockComment": [ "/*", "*/" ]
-    },
-    // symbols used as brackets
-    "brackets": [
-        ["{", "}"],
-        ["[", "]"],
-        ["(", ")"]
-    ],
-    // symbols that are auto closed when typing
-    "autoClosingPairs": [
-        ["{", "}"],
-        ["[", "]"],
-        ["(", ")"],
-        ["\"", "\""],
-        ["'", "'"],
+	"comments": {
+		// symbol used for single line comment. Remove this entry if your language does not support line comments
+		"lineComment": "//",
+		// symbols used for start and end a block comment. Remove this entry if your language does not support block comments
+		"blockComment": [ "/*", "*/" ]
+	},
+	// symbols used as brackets
+	"brackets": [
+		["{", "}"],
+		["[", "]"],
+		["(", ")"],
+		["define", "end"],
+		["instance", "end"],
+		["method", "end"],
+		// skipping `property` on purpose because it is not necessarily paired with `end`
+		["scope", "end"],
+		["if", "end"],
+		["switch", "end"],
+		["loop", "end"]
+	],
+	// symbols that are auto closed when typing
+	"autoClosingPairs": [
+		["{", "}"],
+		["[", "]"],
+		["(", ")"],
+		["\"", "\""],
+		["'", "'"],
 		["`", "`"]
-    ],
-    // symbols that that can be used to surround a selection
-    "surroundingPairs": [
-        ["{", "}"],
-        ["[", "]"],
-        ["(", ")"],
-        ["\"", "\""],
-        ["'", "'"],
+	],
+	// symbols that that can be used to surround a selection
+	"surroundingPairs": [
+		["{", "}"],
+		["[", "]"],
+		["(", ")"],
+		["\"", "\""],
+		["'", "'"],
 		["`", "`"]
-    ]
+	],
+	"folding": {
+		"markers": {
+			"start": "^\\s*(?:(?:(?:define|if|instance|loop|method|scope|switch)\\b)|(?:property\\b[^=]*$))",
+			"end": "^\\s*end\\b"
+		}
+	},
+	"indentationRules": {
+		"increaseIndentPattern": "^\\s*(?:(?:(?:define|if|instance|loop|method|scope|switch|case|elseif|else)\\b)|(?:property\\b[^=]*$))",
+		"decreaseIndentPattern": "^\\s*(?:end|case|elseif|else)\\b"
+	}
 }

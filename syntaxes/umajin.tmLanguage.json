@@ -6,20 +6,6 @@
 	"patterns": [
 		{
 			"include": "#statements"
-		},
-		{
-			"name": "keyword.control.flow.umajin",
-			"match": "\\b(define|instance|property|returns|case|end|elseif|else|exitloop|if|include|include_once|in|loop|method|override|return|raise|scope|switch|tween)\\b"
-		},
-		{
-			"include": "#type-primitive"
-		},
-		{
-			"include": "#type"
-		},
-		{
-			"name": "constant.language.umajin",
-			"match": "\\b(g_){1}([_$a-zA-Z0-9])*"
 		}
 	],
 
@@ -27,513 +13,217 @@
 		"statements": {
 			"patterns": [
 				{
-					"include": "#string"
+					"include": "#comments"
 				},
 				{
-					"include": "#comment"
+					"include": "#strings"
 				},
 				{
-					"include": "#control-statement"
+					"include": "#ct"
 				},
 				{
-					"include": "#declaration"
-				}
-			]
-		},
-
-		"string": {
-			"patterns": [
-				{
-					"include": "#qstring-single"
+					"include": "#keyword"
 				},
 				{
-					"include": "#qstring-double"
-				}
-			]
-		},
-		"qstring-double": {
-			"name": "string.quoted.double.umajin",
-			"begin": "\"",
-			"beginCaptures": {
-				"0": {
-					"name": "punctuation.definition.string.begin.umajin"
-				}
-			},
-			"end": "(\")|((?:[^\\\\\\n])$)",
-			"endCaptures": {
-				"1": {
-					"name": "punctuation.definition.string.end.umajin"
-				},
-				"2": {
-					"name": "invalid.illegal.newline.umajin"
-				}
-			},
-			"patterns": [
-				{
-					"include": "#string-character-escape"
-				}
-			]
-		},
-		"qstring-single": {
-			"name": "string.quoted.single.umajin",
-			"begin": "'",
-			"beginCaptures": {
-				"0": {
-					"name": "punctuation.definition.string.begin.umajin"
-				}
-			},
-			"end": "(\\')|((?:[^\\\\\\n])$)",
-			"endCaptures": {
-				"1": {
-					"name": "punctuation.definition.string.end.umajin"
-				},
-				"2": {
-					"name": "invalid.illegal.newline.umajin"
-				}
-			},
-			"patterns": [
-				{
-					"include": "#string-character-escape"
-				}
-			]
-		},
-		"string-character-escape": {
-			"name": "constant.character.escape.umajin",
-			"match": "\\\\(x[0-9A-Fa-f]{2}|[0-2][0-7]{0,2}|3[0-6][0-7]?|37[0-7]?|[4-7][0-7]?|.|$)",
-			"patterns": []
-		},
-
-
-
-		"comment": {
-			"patterns": [
-				{
-					"name": "comment.block.umajin",
-					"begin": "(/\\*)(?:\\s*((@)internal)(?=\\s|(\\*/)))?",
-					"beginCaptures": {
-						"1": {
-							"name": "punctuation.definition.comment.umajin"
-						},
-						"2": {
-							"name": "storage.type.internaldeclaration.umajin"
-						},
-						"3": {
-							"name": "punctuation.decorator.internaldeclaration.umajin"
-						}
-					},
-					"end": "\\*/",
-					"endCaptures": {
-						"0": {
-							"name": "punctuation.definition.comment.umajin"
-						}
-					}
-				},
-				{
-					"begin": "(^[ \\t]+)?((//)(?:\\s*((@)internal)(?=\\s|$))?)",
-					"beginCaptures": {
-						"1": {
-							"name": "punctuation.whitespace.comment.leading.umajin"
-						},
-						"2": {
-							"name": "comment.line.double-slash.umajin"
-						},
-						"3": {
-							"name": "punctuation.definition.comment.umajin"
-						},
-						"4": {
-							"name": "storage.type.internaldeclaration.umajin"
-						},
-						"5": {
-							"name": "punctuation.decorator.internaldeclaration.umajin"
-						}
-					},
-					"end": "(?=^)",
-					"contentName": "comment.line.double-slash.umajin"
-				}
-			]
-		},
-
-
-
-		"declaration": {
-			"patterns": [
-				{
-					"include": "#decorator"
-				}
-			]
-		},
-
-		"decorator": {
-			"name": "meta.decorator.umajin",
-			"begin": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))\\@",
-			"beginCaptures": {
-				"0": {
-					"name": "punctuation.decorator.umajin"
-				}
-			},
-			"end": "(?=\\s)",
-			"patterns": [
-				{
-					"include": "#expression"
-				}
-			]
-		},
-
-
-
-		"control-statement": {
-			"patterns": [
-				{
-					"name": "keyword.control.flow.umajin",
-					"match": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))(return)(?![_$[:alnum:]])(?:(?=\\.\\.\\.)|(?!\\.))"
-				}
-			]
-		},
-
-
-
-		"expression": {
-			"patterns": [
-				{
-					"include": "#expressionWithoutIdentifiers"
-				},
-				{
-					"include": "#identifiers"
-				},
-				{
-					"include": "#expressionPunctuations"
-				}
-			]
-		},
-		"expressionWithoutIdentifiers": {
-			"patterns": [
-				{
-					"include": "#string"
-				},
-				{
-					"include": "#comment"
-				},
-				{
-					"include": "#class-expression"
-				},
-				{
-					"include": "#ternary-expression"
-				},
-				{
-					"include": "#new-expr"
-				},
-				{
-					"include": "#object-literal"
-				},
-				{
-					"include": "#expression-operators"
-				},
-				{
-					"include": "#function-call"
+					"include": "#identifier"
 				},
 				{
 					"include": "#literal"
 				},
 				{
-					"include": "#support-objects"
+					"include": "#operator"
 				},
 				{
-					"include": "#paren-expression"
-				}
-			]
-		},
-		"expressionPunctuations": {
-			"patterns": [
-				{
-					"include": "#punctuation-comma"
-				},
-				{
-					"include": "#punctuation-accessor"
-				}
-			]
-		},
-		"punctuation-comma": {
-			"name": "punctuation.separator.comma.umajin",
-			"match": ",",
-			"patterns": []
-		},
-		"punctuation-accessor": {
-			"match": "(?:(\\.)|(\\?\\.(?!\\s*[[:digit:]])))",
-			"captures": {
-				"1": {
-					"name": "punctuation.accessor.umajin"
-				},
-				"2": {
-					"name": "punctuation.accessor.optional.umajin"
-				}
-			},
-			"patterns": []
-		},
-
-
-
-		"identifiers": {
-			"patterns": [
-				{
-					"include": "#object-identifiers"
-				},
-				{
-					"match": "(?x)(?:(?:(\\.)|(\\?\\.(?!\\s*[[:digit:]])))\\s*)?([_$[:alpha:]][_$[:alnum:]]*)(?=\\s*=\\s*(\n  ((async\\s+)?(\n    (function\\s*[(<*]) |\n    (function\\s+) |\n    ([_$[:alpha:]][_$[:alnum:]]*\\s*=>)\n  )) |\n  ((async\\s*)?(\n    # sure shot arrow functions even if => is on new line\n(\n  [(]\\s*\n  (\n    ([)]\\s*:) |                                                                                       # ():\n    ((\\.\\.\\.\\s*)?[_$[:alpha:]][_$[:alnum:]]*\\s*:)                                                                  # [(]param: | [(]...param:\n  )\n) |\n(\n  [<]\\s*[_$[:alpha:]][_$[:alnum:]]*\\s+extends\\s*[^=>]                                                              # < typeparam extends\n) |\n# arrow function possible to detect only with => on same line\n(\n  (<\\s*([_$[:alpha:]]|(\\{[^\\{\\}]*\\})|(\\([^\\(\\)]*\\))|(\\[[^\\[\\]]*\\]))([^=<>]|=[^<]|\\<\\s*([_$[:alpha:]]|(\\{[^\\{\\}]*\\})|(\\([^\\(\\)]*\\))|(\\[[^\\[\\]]*\\]))([^=<>]|=[^<])*\\>)*>\\s*)?                                                                                 # typeparameters\n  \\(\\s*(([_$[:alpha:]]|(\\{[^\\{\\}]*\\})|(\\[[^\\[\\]]*\\]))([^()]|(\\([^\\(\\)]*\\)))*)?\\)   # parameters\n  (\\s*:\\s*([^<>\\(\\)]|\\<[^<>]+\\>|\\([^\\(\\)]+\\))+)?                                                      # return type\n  \\s*=>                                                                                               # arrow operator\n)\n  ))\n))",
-					"captures": {
-						"1": {
-							"name": "punctuation.accessor.umajin"
-						},
-						"2": {
-							"name": "punctuation.accessor.optional.umajin"
-						},
-						"3": {
-							"name": "entity.name.function.umajin"
-						}
-					}
-				},
-				{
-					"match": "(?:(\\.)|(\\?\\.(?!\\s*[[:digit:]])))\\s*([[:upper:]][_$[:digit:][:upper:]]*)(?![_$[:alnum:]])",
-					"captures": {
-						"1": {
-							"name": "punctuation.accessor.umajin"
-						},
-						"2": {
-							"name": "punctuation.accessor.optional.umajin"
-						},
-						"3": {
-							"name": "variable.other.constant.property.umajin"
-						}
-					}
-				},
-				{
-					"match": "(?:(\\.)|(\\?\\.(?!\\s*[[:digit:]])))\\s*([_$[:alpha:]][_$[:alnum:]]*)",
-					"captures": {
-						"1": {
-							"name": "punctuation.accessor.umajin"
-						},
-						"2": {
-							"name": "punctuation.accessor.optional.umajin"
-						},
-						"3": {
-							"name": "variable.other.property.umajin"
-						}
-					}
-				},
-				{
-					"name": "variable.other.constant.umajin",
-					"match": "([[:upper:]][_$[:digit:][:upper:]]*)(?![_$[:alnum:]])"
-				},
-				{
-					"name": "variable.other.readwrite.umajin",
-					"match": "[_$[:alpha:]][_$[:alnum:]]*"
-				}
-			]
-		},
-		"object-identifiers": {
-			"patterns": [
-				{
-					"name": "support.class.umajin",
-					"match": "([_$[:alpha:]][_$[:alnum:]]*)(?=\\s*\\??\\.\\s*prototype\\b(?!\\$))"
-				},
-				{
-					"match": "(?x)(?:(\\.)|(\\?\\.(?!\\s*[[:digit:]])))\\s*(?:\n  ([[:upper:]][_$[:digit:][:upper:]]*) |\n  ([_$[:alpha:]][_$[:alnum:]]*)\n)(?=\\s*\\??\\.\\s*[_$[:alpha:]][_$[:alnum:]]*)",
-					"captures": {
-						"1": {
-							"name": "punctuation.accessor.umajin"
-						},
-						"2": {
-							"name": "punctuation.accessor.optional.umajin"
-						},
-						"3": {
-							"name": "variable.other.constant.object.property.umajin"
-						},
-						"4": {
-							"name": "variable.other.object.property.umajin"
-						}
-					}
-				},
-				{
-					"match": "(?x)(?:\n  ([[:upper:]][_$[:digit:][:upper:]]*) |\n  ([_$[:alpha:]][_$[:alnum:]]*)\n)(?=\\s*\\??\\.\\s*[_$[:alpha:]][_$[:alnum:]]*)",
-					"captures": {
-						"1": {
-							"name": "variable.other.constant.object.umajin"
-						},
-						"2": {
-							"name": "variable.other.object.umajin"
-						}
-					}
+					"include": "#multiline"
 				}
 			]
 		},
 
-
-		"type": {
+		"comments" : {
 			"patterns": [
 				{
-					"include": "#comment"
+					"include": "#comment-block"
 				},
 				{
-					"include": "#string"
-				},
-				{
-					"include": "#numeric-literal"
-				},
-				{
-					"include": "#type-primitive"
-				},
-				{
-					"include": "#type-builtin-literals"
-				},
-				{
-					"include": "#type-parameters"
-				},
-				{
-					"include": "#type-conditional"
-				},
-				{
-					"include": "#type-operators"
-				},
-				{
-					"include": "#type-fn-type-parameters"
-				},
-				{
-					"include": "#type-paren-or-function-parameters"
-				},
-				{
-					"include": "#type-function-return-type"
-				},
-				{
-					"include": "#type-name"
+					"include": "#comment-line"
 				}
 			]
 		},
 
-		"literal": {
+		"comment-block" : {
 			"patterns": [
 				{
-					"include": "#numeric-literal"
-				},
-				{
-					"include": "#boolean-literal"
-				},
-				{
-					"include": "#null-literal"
-				},
-				{
-					"include": "#undefined-literal"
-				},
-				{
-					"include": "#numericConstant-literal"
-				},
-				{
-					"include": "#array-literal"
-				},
-				{
-					"include": "#this-literal"
+					"name": "comment.block",
+					"begin": "/\\*",
+					"end": "\\*/"
 				}
 			]
 		},
-		"array-literal": {
-			"name": "meta.array.literal.umajin",
-			"begin": "\\[",
-			"beginCaptures": {
-				"0": {
-					"name": "meta.brace.square.umajin"
-				}
-			},
-			"end": "\\]",
-			"endCaptures": {
-				"0": {
-					"name": "meta.brace.square.umajin"
-				}
-			},
+		"comment-line" : {
 			"patterns": [
 				{
-					"include": "#expression"
-				},
-				{
-					"include": "#punctuation-comma"
+					"name": "comment.line.double-slash",
+					"match": "//.*"
 				}
 			]
-		},
-		"numeric-literal": {
-			"patterns": [
-				{
-					"name": "constant.numeric.hex.umajin",
-					"match": "\\b(?<!\\$)0(x|X)[0-9a-fA-F][0-9a-fA-F_]*\\b(?!\\$)"
-				},
-				{
-					"name": "constant.numeric.binary.umajin",
-					"match": "\\b(?<!\\$)0(b|B)[01][01_]*\\b(?!\\$)"
-				},
-				{
-					"name": "constant.numeric.octal.umajin",
-					"match": "\\b(?<!\\$)0(o|O)?[0-7][0-7_]*\\b(?!\\$)"
-				},
-				{
-					"match": "(?x)\n(?<!\\$)(?:\n  (?:\\b[0-9][0-9_]*(\\.)[0-9][0-9_]*[eE][+-]?[0-9][0-9_]*\\b)| # 1.1E+3\n  (?:\\b[0-9][0-9_]*(\\.)[eE][+-]?[0-9][0-9_]*\\b)|             # 1.E+3\n  (?:\\B(\\.)[0-9][0-9_]*[eE][+-]?[0-9][0-9_]*\\b)|             # .1E+3\n  (?:\\b[0-9][0-9_]*[eE][+-]?[0-9][0-9_]*\\b)|                 # 1E+3\n  (?:\\b[0-9][0-9_]*(\\.)[0-9][0-9_]*\\b)|                      # 1.1\n  (?:\\b[0-9][0-9_]*(\\.)\\B)|                                  # 1.\n  (?:\\B(\\.)[0-9][0-9_]*\\b)|                                  # .1\n  (?:\\b[0-9][0-9_]*\\b(?!\\.))                                 # 1\n)(?!\\$)",
-					"captures": {
-						"0": {
-							"name": "constant.numeric.decimal.umajin"
-						},
-						"1": {
-							"name": "meta.delimiter.decimal.period.umajin"
-						},
-						"2": {
-							"name": "meta.delimiter.decimal.period.umajin"
-						},
-						"3": {
-							"name": "meta.delimiter.decimal.period.umajin"
-						},
-						"4": {
-							"name": "meta.delimiter.decimal.period.umajin"
-						},
-						"5": {
-							"name": "meta.delimiter.decimal.period.umajin"
-						},
-						"6": {
-							"name": "meta.delimiter.decimal.period.umajin"
-						}
-					}
-				}
-			]
-		},
-		"boolean-literal": {
-			"patterns": [
-				{
-					"name": "constant.language.boolean.true.umajin",
-					"match": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))true(?![_$[:alnum:]])(?:(?=\\.\\.\\.)|(?!\\.))"
-				},
-				{
-					"name": "constant.language.boolean.false.umajin",
-					"match": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))false(?![_$[:alnum:]])(?:(?=\\.\\.\\.)|(?!\\.))"
-				}
-			]
-		},
-		"null-literal": {
-			"name": "constant.language.null.umajin",
-			"match": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))null(?![_$[:alnum:]])(?:(?=\\.\\.\\.)|(?!\\.))"
-		},
-		"this-literal": {
-			"name": "variable.language.this.umajin",
-			"match": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))self\\b(?!\\$)"
-		},
-		"undefined-literal": {
-			"name": "constant.language.undefined.umajin",
-			"match": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))undefined(?![_$[:alnum:]])(?:(?=\\.\\.\\.)|(?!\\.))"
 		},
 
-		"type-primitive": {
-			"match": "(?:\\(|\\s)+(accelerometer|animation_elbow|animation_attachment|animation_blendspace|animation_builder|animation_knees_pelvis|animation_lookat|animation_player|animation_selector|animation_script_ik|animation_timeline|animation_twist|animation_two_joint|asrfid|asrfid_device|audio|audio_recorder|barcode_filter|blendmode|bluetooth|bluetooth_characteristic|bluetooth_device|bluetooth_service|bool|box|camera|capsule|color|compass|data|database|database_sqlite|datetime|debug_support|display_2d|effect|email|file_open_dialog|finger|fingerprint_scanner|fmod_audio|fmod_audio_3d|fmod_audio_effect|fmod_event_system|globals|gps|group|hand|http|http2|ibeacon|ibeacon_listener|image|image_buffer|image_rect|image_rect_reflected|image_reflected|image_slicer|image_source|int|int16|int32|int64|int8|io|key|light|list|lite_html|locale_info|logger|map|mat4|material|mesh|metrics|model|model_animated|modifier|native_browser|native_control|native_fullscreen_video|native_image|native_maps|native_menu|native_menu_item|native_text_edit|native_video|native_webcam|nfc|nfc_device|oauth|object|path_2d|plane|polygon|primitive|program|qrcode_filter|quat|real|real32|real64|realsense_camera|render_target|script|skeleton|script_js|sensors|serial_port|shape|share_data|sky_dome|sphere|sprite|streaming_texture|string|style|system|test_support|text|texture_2d|texture_buffer|text_edit|timer|transform|tuning|tween|uint|uint16|uint32|uint64|uint8|umjfile|uniform|uniform_float|uniform_float2|uniform_float3|uniform_float4|uniform_matrix|uniform_texture|uuid|var|vec2|vec3|vec4|vertex|visobj|visobj_camera|webcam_source|websocket|wifi|window|xml_node)\\b",
-			"captures": {
-				"1": {
-					"name": "storage.type.umajin"
+		"strings" : {
+			"patterns": [
+				{
+					"include": "#string-single"
+				},
+				{
+					"include": "#string-double"
+				},
+				{
+					"include": "#string-backtick"
 				}
-			}
+			]
 		},
-		"type-builtin-literals": {
-			"name": "support.type.builtin.umajin",
-			"match": "(?<![_$[:alnum:]])(?:(?<=\\.\\.\\.)|(?<!\\.))(self|true|false|null|#(dir|jit|aot|desktop|mobile|windows_os|unix|apple|linux|win32|osx|ios|android|line|file|file_path|file_name|directory|dir|dir_name|project|start_file|start_file_path|start_dir|start_dir_name|method|method_name|method_signature|type_of|intrusive_call_stack_tracing_level))(?![_$[:alnum:]])(?:(?=\\.\\.\\.)|(?!\\.))"
+
+		"string-single": {
+			"name": "string.quoted.single",
+			"begin": "'",
+			"end": "'",
+			"patterns": [
+				{
+					"name": "string.quoted.single.content",
+					"match": "[^'\\\\]|\\\\(?:[^xuU]|x[0-7]\\h|u\\h{4}|U00(?:0\\h|10)\\h{4})"
+				}
+			]
+		},
+		"string-double": {
+			"name": "string.quoted.double",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "string.quoted.double.content",
+					"match": "[^\"\\\\]|\\\\(?:[^xuU]|x[0-7]\\h|u\\h{4}|U00(?:0\\h|10)\\h{4})"
+				}
+			]
+		},
+		"string-backtick": {
+			"name": "string.quoted.other.backtick",
+			"begin": "`",
+			"end": "`",
+			"patterns": [
+				{
+					"name": "string.quoted.other.backtick.content",
+					"match": "[^`\\\\]|\\\\(?:[^xuU]|x[0-7]\\h|u\\h{4}|U00(?:0\\h|10)\\h{4})"
+				}
+			]
+		},
+
+		"ct" : {
+			"patterns": [
+				{
+					"name": "meta.preprocessor",
+					"match": "#\\b\\w+\\b"
+				}
+			]
+		},
+
+		"keyword" : {
+			"patterns": [
+				{
+					"name": "keyword.control",
+					"match": "\\b(?:include_once|case|constant|define|elseif|else|end|exitloop|if|in|instance|loop|method|nextloop|property|raise|return|scope|switch)\\b"
+				}
+			]
+		},
+
+		"identifier" : {
+			"patterns": [
+				{
+					"name": "variable",
+					"match": "\\b[_a-zA-Z][_a-zA-Z0-9]*+\\b"
+				}
+			]
+		},
+
+		"literal" : {
+			"patterns": [
+				{
+					"include": "#hex-literal"
+				},
+				{
+					"include": "#bin-literal"
+				},
+				{
+					"include": "#oct-literal"
+				},
+				{
+					"include": "#float-literal"
+				},
+				{
+					"include": "#dec-literal"
+				}
+			]
+		},
+
+		"hex-literal" : {
+			"patterns": [
+				{
+					"name": "constant.numeric.hexadecimal",
+					"match": "0x\\h(?:_?\\h)*+\\b(?!\\.)"
+				}
+			]
+		},
+
+		"bin-literal" : {
+			"patterns": [
+				{
+					"name": "constant.numeric.binary",
+					"match": "0b[01](?:_?[01])*+\\b(?!\\.)"
+				}
+			]
+		},
+
+		"oct-literal" : {
+			"patterns": [
+				{
+					"name": "constant.numeric.octal",
+					"match": "0o[0-7](?:_?[0-7])*+\\b(?!\\.)"
+				}
+			]
+		},
+
+		"float-literal" : {
+			"patterns": [
+				{
+					"name": "constant.numeric.floating-point",
+					"match": "(?:(?:[1-9](?:_?\\d)*+|0)e[+-]?(?:[1-9](?:_?\\d)*+|0)|(?:[1-9](?:_?\\d)*+|0)\\.(?:[1-9](?:_?\\d)*+|0)?(?:e[+-]?(?:[1-9](?:_?\\d)*+|0))?|\\.(?:[1-9](?:_?\\d)*+|0)(?:e[+-]?(?:[1-9](?:_?\\d)*+|0))?)\\b(?!\\.)"
+				}
+			]
+		},
+
+		"dec-literal" : {
+			"patterns": [
+				{
+					"name": "constant.numeric.decimal",
+					"match": "(?:[1-9](?:_?\\d)*+|0)\\b(?!\\.)"
+				}
+			]
+		},
+
+		"operator" : {
+			"patterns": [
+				{
+					"name": "keyword.operator",
+					"match": "\\.\\.?\\.?|\\(|\\)|==?|!=?|\\*=?|/=?|%=?|\\^=?|~=?|\\+(?:\\+|=)?|-(?:-|=)?|&(?:&?=)?|\\|(?:\\|?=)?|<(?:<?=)?|>(?:>?=)?|\\[|\\]|\\{|\\}|;|,|\\?|::?"
+				}
+			]
+		},
+
+		"multiline" : {
+			"patterns": [
+				{
+					"name": "meta.preprocessor",
+					"match": "\\\\$"
+				}
+			]
 		}
 	}
 }

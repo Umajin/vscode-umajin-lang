@@ -32,7 +32,7 @@
 	"Include file": {
 		"prefix": "include file",
 		"body": [
-			"include_once '${1:filepath}.u'"
+			"#include '${1:filepath}.u'"
 		],
 		"description": "Include file"
 	},
@@ -40,12 +40,21 @@
 	"Loop": {
 		"prefix": "loop",
 		"body": [
-			"loop uint ${1:i} = 0, ${1:i} < ${2:list}.length(), ${1:i}++",
-			"\t${4:var} ${3:element} = ${2:list}[${1:i}]",
+			"loop uint ${1:i} = 0; ${1:i} < ${2:max}; ${1:i}++",
 			"\t$0",
 			"end"
 		],
 		"description": "Loop"
+	},
+	
+	"Loop in": {
+		"prefix": "loop",
+		"body": [
+			"loop in ${1:container}: ${2:key} key, ${3:value} value",
+			"\t$0",
+			"end"
+		],
+		"description": "Loop in container"
 	},
 	
 	"If Statement": {
