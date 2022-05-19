@@ -252,7 +252,7 @@ class UmajinExtension {
 	public updateConfiguration(event: vscode.ConfigurationChangeEvent) {
 		this._readConfig();
 
-		if (event.affectsConfiguration('umajin.languageServer')) {
+		if (event.affectsConfiguration('umajin.path.languageServer')) {
 			this._restartLanguageClient();
 		}
 	}

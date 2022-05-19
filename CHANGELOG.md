@@ -15,6 +15,12 @@
 - Improved performance
 
 
+## [1.0.1] - 2022-05-20
+
+### Fixed
+
+- Language server is restarted if `umajin.path.languageServer` setting is changed
+
 ## [1.0.0] - 2022-05-18
 
 ### Added
