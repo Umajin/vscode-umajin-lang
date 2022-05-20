@@ -15,6 +15,12 @@
 - Improved performance
 
 
+## [1.0.2] - 2022-05-20
+
+### Added
+
+- The extension is now packed
+
 ## [1.0.1] - 2022-05-20
 
 ### Fixed
