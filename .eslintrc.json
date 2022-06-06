@@ -18,6 +18,7 @@
     },
     "ignorePatterns": [
         "out",
+        "node_modules",
         "dist",
         "**/*.d.ts"
     ]

@@ -10,16 +10,30 @@
 
 - Auto-formatting
 
+- Call hierarchy
+
+- Type hierarchy
+
 - Improved code completion
 
 - Improved performance
 
 
-## [1.0.2] - 2022-05-20
+## [1.1.0] - 2022-06-07
 
 ### Added
 
-- The extension is now packed
+- Automated Umajin VSCode Workspace generation (use "umajin.generateWorkspace" command)
+
+- The extension is now bundled
+
+### Fixed
+
+- Improved extension categories
+
+- Fixed packaging
+
+- Dependencies updated (LSP 3.17)
 
 ## [1.0.1] - 2022-05-20
 

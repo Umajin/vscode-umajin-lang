@@ -2,7 +2,7 @@
 	"name": "umajin-lang",
 	"displayName": "Umajin Language",
 	"description": "Provide Umajin language support for Visual Studio Code.",
-	"version": "1.0.2",
+	"version": "1.1.0",
 	"license": "MIT",
 	"publisher": "umajin-kuzmashapran",
 	"private": false,
@@ -26,7 +26,8 @@
 		}
 	],
 	"categories": [
-		"Programming Languages"
+		"Programming Languages",
+		"Debuggers"
 	],
 	"repository": {
 		"type": "git",
@@ -44,23 +45,26 @@
 	"keywords": [
 		"multi-root ready"
 	],
-	"engines": {
-		"vscode": "^1.65.0"
-	},
 	"activationEvents": [
 		"onLanguage:umajin",
-		"onCommand:umajin.generateStdLib"
+		"onCommand:umajin.generateStdLib",
+		"onCommand:umajin.generateWorkspace",
+		"workspaceContains:**/umajin"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "umajin.generateStdLib",
-				"title": "Generate Umajin Standard Library"
+				"title": "Generate Umajin Standard Library",
+				"command": "umajin.generateStdLib"
 			},
 			{
-				"command": "umajin.run",
+				"title": "Generate Umajin VSCode Workspace file",
+				"command": "umajin.generateWorkspace"
+			},
+			{
 				"title": "Run",
+				"command": "umajin.run",
 				"icon": "$(play)"
 			}
 		],
@@ -461,27 +465,42 @@
 			{
 				"language": "umajin",
 				"path": "./snippets/umajin.json"
+			},
+			{
+				"language": "json",
+				"path": "./snippets/code-workspace.json"
 			}
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run package",
+		"vscode:prepublish": "npm run vscode-prepublish-esbuild",
+		"vscode-prepublish-esbuild": "npm run esbuild-package -- --minify",
+		"esbuild-package": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
+		"esbuild": "npm run esbuild-base -- --sourcemap",
+		"esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+		"vscode-prepublish-webpack": "npm run webpack-package",
 		"webpack": "webpack --mode development",
 		"webpack-dev": "webpack --mode development --watch",
-		"package": "webpack --mode production --devtool hidden-source-map",
+		"webpack-package": "webpack --mode production --devtool hidden-source-map",
+		"vscode-prepublish-vanilla": "npm run compile",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"lint": "eslint src --ext ts"
 	},
+	"engines": {
+		"vscode": "^1.67.0"
+	},
 	"dependencies": {
-		"vscode-languageclient": "^7.0.0"
+		"@vscode/debugadapter": "^1.55.1",
+		"vscode-languageclient": "^8.0.0"
 	},
 	"devDependencies": {
-		"@types/node": "14.x",
-		"@types/vscode": "^1.65.0",
+		"@types/node": "16.x",
+		"@types/vscode": "^1.67.0",
 		"@typescript-eslint/eslint-plugin": "^5.16.0",
 		"@typescript-eslint/parser": "^5.16.0",
-		"@vscode/debugadapter": "^1.55.1",
+		"@vscode/debugprotocol": "^1.55.1",
+		"esbuild": "^0.14.42",
 		"eslint": "^8.11.0",
 		"path": "^0.12.7",
 		"ts-loader": "^9.3.0",

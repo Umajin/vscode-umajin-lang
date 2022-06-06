@@ -7,24 +7,24 @@ import * as path from 'path';
 import * as child_process from 'child_process';
 import * as debugadapter from '@vscode/debugadapter';
 import * as debugprotocol from '@vscode/debugprotocol';
-import * as packageJson from "./package.json";
+import * as packageJson from './package.json';
 
 interface ILaunchRequestArguments extends debugprotocol.DebugProtocol.LaunchRequestArguments {
 	arguments?: string[];
 }
 
 
-let isWindows = (process.platform === 'win32');
-let isOSX = (process.platform === 'darwin');
+const isWindows = (process.platform === 'win32');
+const isOSX = (process.platform === 'darwin');
 
 
-let exeName = isWindows ? function (name: string): string {
+const exeName = isWindows ? function (name: string): string {
 	return name + '.exe';
 } : function (name: string): string {
 	return name;
 };
 
-let appName = isWindows ? function (name: string): string {
+const appName = isWindows ? function (name: string): string {
 	return name + '.exe';
 } : isOSX ? function (name: string): string {
 	return name + '.app/Contents/MacOS/' + name;
@@ -42,47 +42,47 @@ function makeAbsolute(basePart: string, pathPart: string, filePart: string): str
 
 class OutputHighlightingRule {
 	public match: string =
-		packageJson.contributes.configuration.properties["umajin.outputHighlighting"].items.properties.
+		packageJson.contributes.configuration.properties['umajin.outputHighlighting'].items.properties.
 			match.default;
 
 	public asRegex: boolean =
-		packageJson.contributes.configuration.properties["umajin.outputHighlighting"].items.properties.
+		packageJson.contributes.configuration.properties['umajin.outputHighlighting'].items.properties.
 			asRegex.default;
 
 	public caseSensitive: boolean =
-		packageJson.contributes.configuration.properties["umajin.outputHighlighting"].items.properties.
+		packageJson.contributes.configuration.properties['umajin.outputHighlighting'].items.properties.
 			caseSensitive.default;
 
 	public invert: boolean =
-		packageJson.contributes.configuration.properties["umajin.outputHighlighting"].items.properties.
+		packageJson.contributes.configuration.properties['umajin.outputHighlighting'].items.properties.
 			invert.default;
 
 	public applyTo: 'message' | 'sourceInfo' | 'logLevel' =
-		packageJson.contributes.configuration.properties["umajin.outputHighlighting"].items.properties.
+		packageJson.contributes.configuration.properties['umajin.outputHighlighting'].items.properties.
 			applyTo.default as typeof this.applyTo;
 
 	public action: 'highlight' | 'remove' =
-		packageJson.contributes.configuration.properties["umajin.outputHighlighting"].items.properties.
+		packageJson.contributes.configuration.properties['umajin.outputHighlighting'].items.properties.
 			action.default as typeof this.action;
 
 	public foreground: string =
-		packageJson.contributes.configuration.properties["umajin.outputHighlighting"].items.properties.
+		packageJson.contributes.configuration.properties['umajin.outputHighlighting'].items.properties.
 			foreground.default;
 
 	public background: string =
-		packageJson.contributes.configuration.properties["umajin.outputHighlighting"].items.properties.
+		packageJson.contributes.configuration.properties['umajin.outputHighlighting'].items.properties.
 			background.default;
 
 	public bold: 'keep' | 'on' | 'off' =
-		packageJson.contributes.configuration.properties["umajin.outputHighlighting"].items.properties.
+		packageJson.contributes.configuration.properties['umajin.outputHighlighting'].items.properties.
 			bold.default as typeof this.bold;
 
 	public italic: 'keep' | 'on' | 'off' =
-		packageJson.contributes.configuration.properties["umajin.outputHighlighting"].items.properties.
+		packageJson.contributes.configuration.properties['umajin.outputHighlighting'].items.properties.
 			italic.default as typeof this.italic;
 }
 
-let defaultOutputHighlightingRule: OutputHighlightingRule = new OutputHighlightingRule();
+const defaultOutputHighlightingRule: OutputHighlightingRule = new OutputHighlightingRule();
 
 function fillOutputHighlightingRuleDefaults(value: OutputHighlightingRule): void {
 	if (value.match === undefined) {
@@ -124,11 +124,11 @@ class Color {
 	public green: number = 0;
 	public blue: number = 0;
 
-	private static readonly reHexColor: RegExp = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i;
+	private static readonly _reHexColor: RegExp = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i;
 
 	public constructor(hex?: string) {
 		if (hex) {
-			let match = hex.match(Color.reHexColor);
+			const match = hex.match(Color._reHexColor);
 			if (match === null) {
 				throw TypeError('Color is not a hex string');
 			}
@@ -161,7 +161,7 @@ class ColorMixer {
 			mixed.green += color.green;
 			mixed.blue += color.blue;
 		});
-		let amount: number = this._colors.length;
+		const amount: number = this._colors.length;
 		mixed.red /= amount;
 		mixed.green /= amount;
 		mixed.blue /= amount;
@@ -170,47 +170,59 @@ class ColorMixer {
 }
 
 class UmajinExtension {
+	private _context: vscode.ExtensionContext;
 	private _languageClient?: langclient.LanguageClient = undefined;
 
 	private _wsPath: string = '';
 
-	private _collapseLongMessages: boolean = packageJson.contributes.configuration.properties["umajin.collapseLongMessages"].default;
-	private _umajincFullPath: string = packageJson.contributes.configuration.properties["umajin.path.compiler"].default;
-	private _umajinJitFullPath: string = packageJson.contributes.configuration.properties["umajin.path.jitEngine"].default;
-	private _umajinlsFullPath: string = packageJson.contributes.configuration.properties["umajin.path.languageServer"].default;
-	private _root: string = packageJson.contributes.configuration.properties["umajin.root"].default;
-	private _simulateCompiler: string = packageJson.contributes.configuration.properties["umajin.simulate.compiler"].default;
-	private _simulatePlatform: string = packageJson.contributes.configuration.properties["umajin.simulate.platform"].default;
-
+	private _collapseLongMessages: boolean = packageJson.contributes.configuration.properties['umajin.collapseLongMessages'].default;
+	private _umajincFullPath: string = packageJson.contributes.configuration.properties['umajin.path.compiler'].default;
+	private _umajinJitFullPath: string = packageJson.contributes.configuration.properties['umajin.path.jitEngine'].default;
+	private _umajinlsFullPath: string = packageJson.contributes.configuration.properties['umajin.path.languageServer'].default;
+	private _root: string = packageJson.contributes.configuration.properties['umajin.root'].default;
+	private _simulateCompiler: string = packageJson.contributes.configuration.properties['umajin.simulate.compiler'].default;
+	private _simulatePlatform: string = packageJson.contributes.configuration.properties['umajin.simulate.platform'].default;
 
 	public constructor(context: vscode.ExtensionContext) {
-		this._readConfig();
+		this._context = context;
 
-		this._restartLanguageClient();
-
-		context.subscriptions.push(
-			vscode.commands.registerCommand('umajin.generateStdLib', this.generateStdLib),
-
-			vscode.commands.registerCommand('umajin.run', (resource: vscode.Uri) => {
-				let targetResource = resource;
-				if (!targetResource && vscode.window.activeTextEditor) {
-					targetResource = vscode.window.activeTextEditor.document.uri;
-				}
-				if (targetResource) {
-					vscode.debug.startDebugging(undefined, {
-						type: 'umajin',
-						name: 'Umajin: Run',
-						request: 'launch'
-					},
-						{}
-					);
-				}
-			}),
-
-			vscode.debug.registerDebugConfigurationProvider('umajin', new DebugConfigurationProvider()),
-
-			vscode.debug.registerDebugAdapterDescriptorFactory('umajin', new DebugAdapterDescriptorFactory())
+		this._context.subscriptions.push(
+			vscode.commands.registerCommand('umajin.generateWorkspace', this.generateWorkspace)
 		);
+
+		if (vscode.workspace.workspaceFolders !== undefined) {
+			this._readConfig();
+
+			this._restartLanguageClient();
+
+			this._context.subscriptions.push(
+				vscode.commands.registerCommand('umajin.generateStdLib', this.generateStdLib),
+
+				vscode.commands.registerCommand('umajin.run', (resource: vscode.Uri) => {
+					let targetResource = resource;
+					if (!targetResource && vscode.window.activeTextEditor) {
+						targetResource = vscode.window.activeTextEditor.document.uri;
+					}
+					if (targetResource) {
+						vscode.debug.startDebugging(undefined, {
+							type: 'umajin',
+							name: 'Umajin: Run',
+							request: 'launch'
+						},
+							{}
+						);
+					}
+				}),
+
+				vscode.debug.registerDebugConfigurationProvider('umajin', new DebugConfigurationProvider()),
+
+				vscode.debug.registerDebugAdapterDescriptorFactory('umajin', new DebugAdapterDescriptorFactory())
+			);
+		} else {
+
+			this._context.subscriptions.push(
+				vscode.commands.registerCommand('umajin.generateStdLib', this.generateStdLibStub));
+		}
 	}
 
 	public destruct() {
@@ -258,13 +270,16 @@ class UmajinExtension {
 	}
 
 	public generateStdLib() {
-		if (fs.existsSync(this._umajinJitFullPath)) {
-			let options: child_process.SpawnSyncOptions = {
-				cwd: this._wsPath
+		const self: UmajinExtension = umajin!;
+		if (fs.existsSync(self._umajinJitFullPath)) {
+			const options: child_process.SpawnSyncOptions = {
+				cwd: self._wsPath
 			};
-			let result = child_process.spawnSync(this._umajinJitFullPath, ['--print-stdlib'], options);
-			if ((result.status !== 0) && (result.status !== 2)) /* expected status code of --print-stdlib is 2 */ {
-				console.error('An attempt to generate Umajin Standard Library using "' + this._umajinJitFullPath + '" failed with code ' + result.status);
+			const result = child_process.spawnSync(self._umajinJitFullPath, ['--print-stdlib'], options);
+			if ((result.status !== 0) && (result.status !== 2)) /* old expected status code of --print-stdlib is 2 */ {
+				const message : string = 'An attempt to generate Umajin Standard Library using "' + self._umajinJitFullPath + '" failed with code ' + result.status;
+				vscode.window.showErrorMessage(message);
+				console.error(message);
 				if (result.error !== undefined) {
 					console.error('Error: ' + result.error);
 				}
@@ -274,8 +289,59 @@ class UmajinExtension {
 				if (Buffer.byteLength(result.stderr) !== 0) {
 					console.error('Error stream: ' + result.stderr);
 				}
+			} else {
+				vscode.window.showInformationMessage('Umajin Standard Library generated.');
 			}
 		}
+
+	}
+
+	public generateStdLibStub() {
+		vscode.window.showErrorMessage('Generating Umajin Standard Library requires Umajin workspace to be open.');
+	}
+
+	public async generateWorkspace(): Promise<void> {
+		vscode.window.showOpenDialog({
+			title: 'Select start file',
+			canSelectMany: false,
+			filters: {
+				'Umajin files': ['u'],
+				'All files': ['*']
+			}
+		}).then(async rootFileUri => {
+			if (rootFileUri && rootFileUri[0]) {
+				const rootFullPath = rootFileUri[0].fsPath;
+				const rootFilename = path.parse(rootFullPath).base;
+				const cwFilename = path.parse(rootFullPath).dir + path.sep + path.parse(rootFullPath).name + '.code-workspace';
+				let write: boolean = true;
+				let open: boolean = true;
+				if (fs.existsSync(cwFilename)) {
+					await vscode.window.showInformationMessage(`File "${cwFilename}" already exists.\nDo you want to overwrite it?`, 'Yes', 'No')
+						.then(answer => {
+							if (answer === 'No') {
+								write = false;
+							}
+						});
+				}
+				if (write) {
+					fs.writeFileSync(cwFilename, (JSON.parse(
+						fs.readFileSync(
+							umajin!._context.asAbsolutePath('snippets/code-workspace.json'), 'utf-8'))
+					['Umajin VSCode Workspace'].body as string[]).join('\n')
+						.replace('$0', rootFilename));
+				} else {
+					await vscode.window.showInformationMessage(`Do you want to open "${cwFilename}" anyway?`, 'Yes', 'No')
+						.then(answer => {
+							if (answer === 'No') {
+								open = false;
+							}
+						});
+				}
+				if (open) {
+					vscode.window.showTextDocument(vscode.Uri.file(cwFilename));
+				}
+			}
+		});
 	}
 
 	public highlightOutput(sourceInfo: string, logLevel: string, message: string, input: string): string | undefined {
@@ -285,7 +351,7 @@ class UmajinExtension {
 		let bold: boolean = false;
 		let italic: boolean = false;
 
-		let rules: OutputHighlightingRules | undefined = vscode.workspace.getConfiguration().get('umajin.outputHighlighting');
+		const rules: OutputHighlightingRules | undefined = vscode.workspace.getConfiguration().get('umajin.outputHighlighting');
 		if (rules !== undefined) {
 			rules.forEach((rule: OutputHighlightingRule): void => {
 				fillOutputHighlightingRuleDefaults(rule);
@@ -417,7 +483,6 @@ class UmajinExtension {
 
 		this._simulatePlatform =
 			vscode.workspace.getConfiguration().get('umajin.simulate.platform', this._simulatePlatform);
-
 	}
 
 	private _restartLanguageClient() {
@@ -425,12 +490,12 @@ class UmajinExtension {
 			this._languageClient.stop();
 		}
 
-		let serverOptions: langclient.ServerOptions = {
+		const serverOptions: langclient.ServerOptions = {
 			command: this._umajinlsFullPath,
 			args: []
 		};
 
-		let clientOptions: langclient.LanguageClientOptions = {
+		const clientOptions: langclient.LanguageClientOptions = {
 			documentSelector: [{ scheme: 'file', language: 'umajin' }]
 		};
 
@@ -458,11 +523,6 @@ export function activate(context: vscode.ExtensionContext): void {
 			umajin.updateConfiguration(event);
 		}
 	});
-
-	if (vscode.workspace.workspaceFolders === undefined) {
-		vscode.window.showErrorMessage('Umajin: Working folder not found, open a folder and try again');
-		return;
-	}
 
 	umajin = new UmajinExtension(context);
 }
@@ -499,8 +559,8 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	private _stderrTail: string = '';
 	private _lastCompilerOutputEvent?: debugprotocol.DebugProtocol.OutputEvent = undefined;
 
-	private static readonly reSourceInfo: RegExp = /^(([^:]+):(\d+)(?::(\d+))?[^\t]*)?\t(\d+\t(\w+)\t(.*))$/;
-	//                                              12       3        4                5     6      7
+	private static readonly _reSourceInfo: RegExp = /^(([^:]+):(\d+)(?::(\d+))?[^\t]*)?\t(\d+\t(\w+)\t(.*))$/;
+	//                                                12       3        4                5     6      7
 
 	public constructor() {
 		super();
@@ -522,15 +582,15 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		debugadapter.logger.setup(debugadapter.Logger.LogLevel.Verbose, false, false);
 
 
-		let uds = this;
+		const uds = this;
 
 		this._wsPath = umajin!.getWsPath();
 		this._collapseLongMessages = umajin!.getCollapseLongMessages();
-		let simulateCompiler = umajin!.getSimulateCompiler();
-		let simulatePlatform = umajin!.getSimulatePlatform();
-		let useJit = (simulateCompiler === 'JIT') && ((simulatePlatform === 'native') || (simulatePlatform === (isWindows ? 'win32' : (isOSX ? 'osx' : '<unknown>'))));
+		const simulateCompiler = umajin!.getSimulateCompiler();
+		const simulatePlatform = umajin!.getSimulatePlatform();
+		const useJit = (simulateCompiler === 'JIT') && ((simulatePlatform === 'native') || (simulatePlatform === (isWindows ? 'win32' : (isOSX ? 'osx' : '<unknown>'))));
 
-		let program: string = useJit ? umajin!.getUmajinJitFullPath() : umajin!.getUmajincFullPath();
+		const program: string = useJit ? umajin!.getUmajinJitFullPath() : umajin!.getUmajincFullPath();
 
 		let programArgs: string[] = ['--log-output=stdout', '--log-level=verbose', '--log-format=s:t:l', `--script=${umajin!.getRoot()}`];
 		if (!useJit) {
@@ -564,12 +624,12 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 			this.sendEvent(e);
 		}
 
-		let options: child_process.SpawnOptionsWithStdioTuple<child_process.StdioNull, child_process.StdioPipe, child_process.StdioPipe> = {
+		const options: child_process.SpawnOptionsWithStdioTuple<child_process.StdioNull, child_process.StdioPipe, child_process.StdioPipe> = {
 			detached: true,
 			cwd: this._wsPath,
 			stdio: ['ignore', 'pipe', 'pipe']
 		};
-		let child = child_process.spawn(program, programArgs, options)
+		const child = child_process.spawn(program, programArgs, options)
 			.on('error', (err: Error) => {
 				{
 					const event: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(
@@ -627,7 +687,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		let looksLike: 'first' | 'single' | 'extra' = 'single';
 		let emitEnd: boolean = false;
 
-		let match = line.match(UmajinDebugSession.reSourceInfo);
+		const match = line.match(UmajinDebugSession._reSourceInfo);
 		if (match !== null) {
 			if (match[1] !== undefined) {
 				event.body.source = new debugadapter.Source(match[2], this.convertDebuggerPathToClient(path.resolve(this._wsPath + path.sep + match[2])));
@@ -638,7 +698,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 			}
 
 			// applying output highlighting rules
-			let output: string | undefined = umajin!.highlightOutput(match[1], match[6], match[7], match[5]);
+			const output: string | undefined = umajin!.highlightOutput(match[1], match[6], match[7], match[5]);
 			if (output === undefined) // it was removed
 			{
 				return;
@@ -680,7 +740,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 
 		if (emitEnd) {
 			// emit 'end' separately with empty output because otherwise it is shown outside
-			let endEvent: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent('', stream);
+			const endEvent: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent('', stream);
 			endEvent.body.group = 'end';
 			this.sendEvent(endEvent);
 		}

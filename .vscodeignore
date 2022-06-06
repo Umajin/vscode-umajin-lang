@@ -1,8 +1,14 @@
 .vscode/
 .vscode-test/
 .gitignore
+.eslintrc.json
 vsc-extension-quickstart.md
-node_modules
-src/
 tsconfig.json
 webpack.config.js
+*.vsix
+src/
+node_modules/
+!node_modules/vscode-{jsonrpc,language{client,server-{protocol,types}}}/
+!node_modules/{semver,lru-cache,yallist}/
+!node_modules/{minimatch,brace-expansion,concat-map,balanced-match}/
+!node_modules/@vscode/debugadapter/
