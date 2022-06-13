@@ -187,7 +187,11 @@ class UmajinExtension {
 		this._context = context;
 
 		this._context.subscriptions.push(
-			vscode.commands.registerCommand('umajin.generateWorkspace', this.generateWorkspace)
+			vscode.commands.registerCommand('umajin.generateStdLib', this.generateStdLib),
+
+			vscode.commands.registerCommand('umajin.generateWorkspace', this.generateWorkspace),
+
+			vscode.commands.registerCommand('umajin.applyAllCodeActions', this.applyAllCodeActions)
 		);
 
 		if (vscode.workspace.workspaceFolders !== undefined) {
@@ -196,8 +200,6 @@ class UmajinExtension {
 			this._restartLanguageClient();
 
 			this._context.subscriptions.push(
-				vscode.commands.registerCommand('umajin.generateStdLib', this.generateStdLib),
-
 				vscode.commands.registerCommand('umajin.run', (resource: vscode.Uri) => {
 					let targetResource = resource;
 					if (!targetResource && vscode.window.activeTextEditor) {
@@ -218,10 +220,6 @@ class UmajinExtension {
 
 				vscode.debug.registerDebugAdapterDescriptorFactory('umajin', new DebugAdapterDescriptorFactory())
 			);
-		} else {
-
-			this._context.subscriptions.push(
-				vscode.commands.registerCommand('umajin.generateStdLib', this.generateStdLibStub));
 		}
 	}
 
@@ -270,6 +268,11 @@ class UmajinExtension {
 	}
 
 	public generateStdLib() {
+		if (vscode.workspace.workspaceFolders === undefined) {
+			vscode.window.showErrorMessage('Generating Umajin standard library requires Umajin workspace to be open.');
+			return;
+		}
+
 		const self: UmajinExtension = umajin!;
 		if (fs.existsSync(self._umajinJitFullPath)) {
 			const options: child_process.SpawnSyncOptions = {
@@ -277,7 +280,7 @@ class UmajinExtension {
 			};
 			const result = child_process.spawnSync(self._umajinJitFullPath, ['--print-stdlib'], options);
 			if ((result.status !== 0) && (result.status !== 2)) /* old expected status code of --print-stdlib is 2 */ {
-				const message : string = 'An attempt to generate Umajin Standard Library using "' + self._umajinJitFullPath + '" failed with code ' + result.status;
+				const message: string = 'An attempt to generate Umajin standard library using "' + self._umajinJitFullPath + '" failed with code ' + result.status;
 				vscode.window.showErrorMessage(message);
 				console.error(message);
 				if (result.error !== undefined) {
@@ -290,14 +293,9 @@ class UmajinExtension {
 					console.error('Error stream: ' + result.stderr);
 				}
 			} else {
-				vscode.window.showInformationMessage('Umajin Standard Library generated.');
+				vscode.window.showInformationMessage('Umajin standard library generated.');
 			}
 		}
-
-	}
-
-	public generateStdLibStub() {
-		vscode.window.showErrorMessage('Generating Umajin Standard Library requires Umajin workspace to be open.');
 	}
 
 	public async generateWorkspace(): Promise<void> {
@@ -342,6 +340,34 @@ class UmajinExtension {
 				}
 			}
 		});
+	}
+
+	public applyAllCodeActions() {
+		if (vscode.workspace.workspaceFolders === undefined) {
+			vscode.window.showErrorMessage('Applying all code actions requires Umajin workspace to be open.');
+			return;
+		}
+
+		const self: UmajinExtension = umajin!;
+		if (!self._languageClient) {
+			vscode.window.showErrorMessage('Applying all code actions requires Umajin language server to be connected.');
+			return;
+		}
+
+		vscode.window.showInformationMessage('Do you want to apply code actions to all files in the project or to open files only?', 'The whole project', 'Open files only')
+			.then(answer => {
+				const openOnly = (answer === 'Open files only');
+				self._languageClient!.sendRequest("workspace/executeCommand",
+					{
+						"command": "applyAllCodeActions",
+						"arguments":
+							[
+								{ "openOnly": openOnly }
+							]
+					}
+				);
+			}
+			);
 	}
 
 	public highlightOutput(sourceInfo: string, logLevel: string, message: string, input: string): string | undefined {
@@ -485,7 +511,7 @@ class UmajinExtension {
 			vscode.workspace.getConfiguration().get('umajin.simulate.platform', this._simulatePlatform);
 	}
 
-	private _restartLanguageClient() {
+	private async _restartLanguageClient() {
 		if (this._languageClient) {
 			this._languageClient.stop();
 		}
@@ -499,18 +525,18 @@ class UmajinExtension {
 			documentSelector: [{ scheme: 'file', language: 'umajin' }]
 		};
 
-		try {
-			this._languageClient = new langclient.LanguageClient(
-				'umajinls',
-				'Umajin Language Server',
-				serverOptions,
-				clientOptions
-			);
+		this._languageClient = new langclient.LanguageClient(
+			'umajinls',
+			'Umajin Language Server',
+			serverOptions,
+			clientOptions
+		);
 
-			this._languageClient.start();
-		} catch (error) {
-			console.error(error);
-		}
+		this._languageClient.start()
+			.catch(error => {
+				console.error(error);
+				this._languageClient = undefined;
+			});
 	}
 }
 

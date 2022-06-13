@@ -4,8 +4,6 @@
 
 - Report project parsing failure
 
-- Massive project-wide auto-fix
-
 - Signature help (overload selection)
 
 - Auto-formatting
@@ -19,11 +17,18 @@
 - Improved performance
 
 
+## [1.1.1] - 2022-06-14
+
+### Added
+
+- Massive project-wide auto-fix (use "Apply all code actions" command)
+
+
 ## [1.1.0] - 2022-06-07
 
 ### Added
 
-- Automated Umajin VSCode Workspace generation (use "umajin.generateWorkspace" command)
+- Automated Umajin VSCode Workspace generation (use "Generate Umajin VSCode Workspace file" command)
 
 - The extension is now bundled
 
@@ -35,11 +40,13 @@
 
 - Dependencies updated (LSP 3.17)
 
+
 ## [1.0.1] - 2022-05-20
 
 ### Fixed
 
 - Language server is restarted if `umajin.path.languageServer` setting is changed
+
 
 ## [1.0.0] - 2022-05-18
 
@@ -69,7 +76,7 @@
 
   - Contextual code completion
 
-- Ability to (re-)generate the Umajin Standard Library using a command
+- Ability to (re-)generate the Umajin Standard Library (use "Generate Umajin standard library" command)
 
 - Scopes folding and brackets jumping
 
