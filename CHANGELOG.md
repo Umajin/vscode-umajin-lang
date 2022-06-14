@@ -17,6 +17,13 @@
 - Improved performance
 
 
+## [1.1.2] - 2022-06-14
+
+### Added
+
+- Ability to specify arguments to Umajin Language Server
+
+
 ## [1.1.1] - 2022-06-14
 
 ### Added

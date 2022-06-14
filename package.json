@@ -82,6 +82,15 @@
 					"description": "Collapse multiline compilation messages",
 					"scope": "window"
 				},
+				"umajin.languageServerArguments": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": [],
+					"description": "Arguments for Umajin Language Server",
+					"scope": "window"
+				},
 				"umajin.outputHighlighting": {
 					"type": "array",
 					"items": {
