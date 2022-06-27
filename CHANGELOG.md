@@ -17,6 +17,13 @@
 - Improved performance
 
 
+## [1.1.3] - 2022-06-27
+
+### Fixed
+
+- Auto-generated Umajin VSCode Workspace file structure fixed (umajin.root was misplaced)
+
+
 ## [1.1.2] - 2022-06-14
 
 ### Added
