@@ -17,6 +17,17 @@
 - Improved performance
 
 
+## [1.1.4] - 2022-06-30
+
+### Added
+
+- Advanced settings to use anything as a language server (mainly for debugging purposes)
+
+### Changed
+
+- `umajin.languageServerArguments` settings renamed to `umajin.advanced.languageServer.arguments`
+
+
 ## [1.1.3] - 2022-06-27
 
 ### Fixed

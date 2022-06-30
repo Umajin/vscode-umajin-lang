@@ -176,7 +176,8 @@ class UmajinExtension {
 	private _wsPath: string = '';
 
 	private _collapseLongMessages: boolean = packageJson.contributes.configuration.properties['umajin.collapseLongMessages'].default;
-	private _languageServerArguments: string[] = packageJson.contributes.configuration.properties['umajin.languageServerArguments'].default;
+	private _languageServerCommand: string = packageJson.contributes.configuration.properties['umajin.advanced.languageServer.command'].default;
+	private _languageServerArguments: string[] = packageJson.contributes.configuration.properties['umajin.advanced.languageServer.arguments'].default;
 	private _umajincFullPath: string = packageJson.contributes.configuration.properties['umajin.path.compiler'].default;
 	private _umajinJitFullPath: string = packageJson.contributes.configuration.properties['umajin.path.jitEngine'].default;
 	private _umajinlsFullPath: string = packageJson.contributes.configuration.properties['umajin.path.languageServer'].default;
@@ -264,7 +265,7 @@ class UmajinExtension {
 		this._readConfig();
 
 		if (event.affectsConfiguration('umajin.path.languageServer') ||
-			event.affectsConfiguration('umajin.languageServerArguments')) {
+			event.affectsConfiguration('umajin.advanced.languageServer')) {
 			this._restartLanguageClient();
 		}
 	}
@@ -491,8 +492,11 @@ class UmajinExtension {
 		this._collapseLongMessages =
 			vscode.workspace.getConfiguration().get('umajin.collapseLongMessages', this._collapseLongMessages);
 
+		this._languageServerCommand =
+		vscode.workspace.getConfiguration().get('umajin.advanced.languageServer.command', this._languageServerCommand);
+
 		this._languageServerArguments =
-			vscode.workspace.getConfiguration().get('umajin.languageServerArguments', this._languageServerArguments);
+			vscode.workspace.getConfiguration().get('umajin.advanced.languageServer.arguments', this._languageServerArguments);
 
 		this._umajincFullPath = makeAbsolute(this._wsPath,
 			vscode.workspace.getConfiguration().get('umajin.path.compiler', this._umajincFullPath),
@@ -522,7 +526,7 @@ class UmajinExtension {
 		}
 
 		const serverOptions: langclient.ServerOptions = {
-			command: this._umajinlsFullPath,
+			command: (this._languageServerCommand !== "") ? this._languageServerCommand : this._umajinlsFullPath,
 			args: this._languageServerArguments
 		};
 
