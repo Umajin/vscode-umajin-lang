@@ -16,6 +16,11 @@
 
 - Improved performance
 
+## [1.2.0] - 2022-07-29
+
+### Changed
+
+- "Apply all code actions" command renamed to "Apply all code actions in Umajin project" to be searchable by "umajin" keyword
 
 ## [1.1.4] - 2022-06-30
 
@@ -27,13 +32,11 @@
 
 - `umajin.languageServerArguments` settings renamed to `umajin.advanced.languageServer.arguments`
 
-
 ## [1.1.3] - 2022-06-27
 
 ### Fixed
 
 - Auto-generated Umajin VSCode Workspace file structure fixed (umajin.root was misplaced)
-
 
 ## [1.1.2] - 2022-06-14
 
@@ -41,13 +44,11 @@
 
 - Ability to specify arguments to Umajin Language Server
 
-
 ## [1.1.1] - 2022-06-14
 
 ### Added
 
 - Massive project-wide auto-fix (use "Apply all code actions" command)
-
 
 ## [1.1.0] - 2022-06-07
 
@@ -65,13 +66,11 @@
 
 - Dependencies updated (LSP 3.17)
 
-
 ## [1.0.1] - 2022-05-20
 
 ### Fixed
 
 - Language server is restarted if `umajin.path.languageServer` setting is changed
-
 
 ## [1.0.0] - 2022-05-18
 
@@ -119,16 +118,13 @@
 
 - Running the project is changed from a built-in task (Terminal -> Run Build Task) to Run and Debug (Run -> Run without Debugging)
 
-
 ## [0.0.6] - 2022-03-29
 
 - Transferring the access.
 
-
 ## [0.0.4] - 2018-10-02
 
 - Run project using built-in build task (Ctrl+Shift+b)
-
 
 ## [0.0.3] - 2018-02-16
 
