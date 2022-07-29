@@ -1,1 +1,524 @@
-../package.json
+{
+	"name": "umajin-lang",
+	"displayName": "Umajin Language",
+	"description": "Provide Umajin language support for Visual Studio Code.",
+	"version": "1.1.4",
+	"license": "MIT",
+	"publisher": "umajin-kuzmashapran",
+	"private": false,
+	"author": {
+		"name": "Umajin",
+		"url": "https://umajin.com"
+	},
+	"contributors": [
+		{
+			"name": "Adam Harte",
+			"email": "adam@adamharte.com",
+			"url": "http://adamharte.com"
+		},
+		{
+			"name": "James Fleming",
+			"email": "jaemz@alum.mit.edu"
+		},
+		{
+			"name": "Kuzma Shapran",
+			"email": "kuzma.shapran@umajin.com"
+		}
+	],
+	"categories": [
+		"Programming Languages",
+		"Debuggers"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/kuzmas/vscode-umajin-lang.git"
+	},
+	"bug": {
+		"url": "https://github.com/kuzmas/vscode-umajin-lang/issues"
+	},
+	"homepage": "https://github.com/kuzmas/vscode-umajin-lang",
+	"icon": "images/umajin-logo.png",
+	"galleryBanner": {
+		"color": "#23323d",
+		"theme": "dark"
+	},
+	"keywords": [
+		"multi-root ready"
+	],
+	"activationEvents": [
+		"onLanguage:umajin",
+		"onCommand:umajin.generateStdLib",
+		"onCommand:umajin.generateWorkspace",
+		"onCommand:umajin.applyAllCodeActions",
+		"workspaceContains:**/umajin"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"title": "Generate Umajin standard library",
+				"command": "umajin.generateStdLib"
+			},
+			{
+				"title": "Generate Umajin VSCode Workspace file",
+				"command": "umajin.generateWorkspace"
+			},
+			{
+				"title": "Apply all code actions",
+				"command": "umajin.applyAllCodeActions"
+			},
+			{
+				"title": "Run",
+				"command": "umajin.run",
+				"icon": "$(play)"
+			}
+		],
+		"configuration": {
+			"title": "Umajin",
+			"properties": {
+				"umajin.advanced.languageServer.command": {
+					"type": "string",
+					"default": "",
+					"description": "Command to use instead of the Umajin Language Server specified by 'umajin.path.languageServer'.",
+					"scope": "window"
+				},
+				"umajin.advanced.languageServer.arguments": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": [],
+					"description": "Arguments for Umajin Language Server",
+					"scope": "window"
+				},
+				"umajin.collapseLongMessages": {
+					"type": "boolean",
+					"default": true,
+					"description": "Collapse multiline compilation messages",
+					"scope": "window"
+				},
+				"umajin.outputHighlighting": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"title": "Highlighting rule",
+						"properties": {
+							"match": {
+								"type": "string",
+								"default": "",
+								"description": "The substring to search or the regular expression to match"
+							},
+							"asRegex": {
+								"type": "boolean",
+								"default": false,
+								"description": "Treat the 'match' string as a regular expression"
+							},
+							"caseSensitive": {
+								"type": "boolean",
+								"default": true,
+								"description": "Perform case sensitive search / match"
+							},
+							"invert": {
+								"type": "boolean",
+								"default": false,
+								"description": "Invert the search / match result"
+							},
+							"applyTo": {
+								"type": "string",
+								"enum": [
+									"message",
+									"sourceInfo",
+									"logLevel"
+								],
+								"default": "message",
+								"description": "Portion of the log entry to apply the search / regex to",
+								"enumDescriptions": [
+									"Message",
+									"Source info",
+									"Log level"
+								]
+							},
+							"action": {
+								"type": "string",
+								"enum": [
+									"highlight",
+									"remove"
+								],
+								"default": "highlight",
+								"description": "The action to do if the string is found / matched",
+								"enumDescriptions": [
+									"Apply highlighting",
+									"Remove"
+								]
+							},
+							"foreground": {
+								"type": "string",
+								"default": "",
+								"description": "Foreground color to mix in",
+								"format": "color"
+							},
+							"background": {
+								"type": "string",
+								"default": "",
+								"description": "Background color to mix in",
+								"format": "color"
+							},
+							"bold": {
+								"type": "string",
+								"enum": [
+									"keep",
+									"on",
+									"off"
+								],
+								"default": "keep",
+								"description": "Bold (last matched rule wins)",
+								"enumDescriptions": [
+									"Do not modify",
+									"Turn on",
+									"Turn off"
+								]
+							},
+							"italic": {
+								"type": "string",
+								"enum": [
+									"keep",
+									"on",
+									"off"
+								],
+								"default": "keep",
+								"description": "Italic (last matched rule wins)",
+								"enumDescriptions": [
+									"Do not modify",
+									"Turn on",
+									"Turn off"
+								]
+							}
+						}
+					},
+					"default": [],
+					"description": "Output highlighting rules",
+					"scope": "window"
+				},
+				"umajin.path.compiler": {
+					"type": "string",
+					"default": ".",
+					"description": "The path to Umajin Compiler executable (relative to a workspace)",
+					"scope": "window"
+				},
+				"umajin.path.jitEngine": {
+					"type": "string",
+					"default": ".",
+					"description": "The path to Umajin JIT engine executable (relative to a workspace)",
+					"scope": "window"
+				},
+				"umajin.path.languageServer": {
+					"type": "string",
+					"default": ".",
+					"description": "The path to Umajin Language Server executable (relative to a workspace)",
+					"scope": "window"
+				},
+				"umajin.root": {
+					"type": "string",
+					"default": "start.u",
+					"description": "The start file of the project",
+					"scope": "window"
+				},
+				"umajin.simulate.compiler": {
+					"type": "string",
+					"default": "JIT",
+					"enum": [
+						"JIT",
+						"AOT"
+					],
+					"description": "Compiler simulation",
+					"enumDescriptions": [
+						"Parse files as if in JIT",
+						"Parse files as if in AOT"
+					],
+					"scope": "window"
+				},
+				"umajin.simulate.platform": {
+					"type": "string",
+					"default": "native",
+					"enum": [
+						"native",
+						"win32",
+						"osx",
+						"ios",
+						"android"
+					],
+					"description": "Platform simulation",
+					"enumDescriptions": [
+						"Parse files as if on native platform",
+						"Parse files as if on Windows",
+						"Parse files as if on OS X",
+						"Parse files as if on iOS",
+						"Parse files as if on Android"
+					],
+					"scope": "window"
+				}
+			}
+		},
+		"debuggers": [
+			{
+				"type": "umajin",
+				"label": "Umajin launch",
+				"runtime": "node",
+				"languages": [
+					"umajin"
+				],
+				"configurationAttributes": {
+					"launch": {
+						"properties": {
+							"arguments": {
+								"type": "array",
+								"description": "Extra arguments",
+								"default": [],
+								"items": {
+									"type": "string"
+								}
+							}
+						}
+					}
+				},
+				"initialConfigurations": [
+					{
+						"type": "umajin",
+						"request": "launch",
+						"name": "Umajin: Run"
+					}
+				],
+				"configurationSnippets": [
+					{
+						"label": "Umajin: Run",
+						"description": "A new configuration for launching Umajin.",
+						"body": {
+							"type": "umajin",
+							"request": "launch",
+							"name": "Umajin: Run"
+						}
+					}
+				]
+			}
+		],
+		"grammars": [
+			{
+				"language": "umajin",
+				"scopeName": "source.umajin",
+				"path": "./syntaxes/umajin.tmLanguage.json"
+			}
+		],
+		"languages": [
+			{
+				"id": "umajin",
+				"aliases": [
+					"Umajin",
+					"umajin"
+				],
+				"extensions": [
+					".u"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"semanticTokenModifiers": [
+			{
+				"id": "block",
+				"description": "A block comment"
+			},
+			{
+				"id": "line",
+				"description": "A single line comment"
+			},
+			{
+				"id": "floatingPoint",
+				"description": "A floating point number"
+			},
+			{
+				"id": "integralBinary",
+				"description": "A binary integral number"
+			},
+			{
+				"id": "integralOctal",
+				"description": "An octal integral number"
+			},
+			{
+				"id": "integralDecimal",
+				"description": "A decimal integral number"
+			},
+			{
+				"id": "integralHexadecimal",
+				"description": "A hexadecimal integral number"
+			},
+			{
+				"id": "single",
+				"description": "A string enclosed in apostrophies"
+			},
+			{
+				"id": "double",
+				"description": "A string enclosed in quotation marks"
+			},
+			{
+				"id": "backtick",
+				"description": "A string enclosed in backticks"
+			},
+			{
+				"id": "primitive",
+				"description": "A primitive type"
+			},
+			{
+				"id": "utility",
+				"description": "A utility type"
+			},
+			{
+				"id": "local",
+				"description": "A local variable"
+			},
+			{
+				"id": "global",
+				"description": "A global variable"
+			}
+		],
+		"semanticTokenScopes": [
+			{
+				"language": "umajin",
+				"scopes": {
+					"comment.block": [
+						"comment.block"
+					],
+					"comment.line": [
+						"comment.line.double-slash"
+					],
+					"constant.defaultLibrary": [
+						"constant.language"
+					],
+					"number.floatingPoint": [
+						"constant.numeric.floating-point"
+					],
+					"number.integralBinary": [
+						"constant.numeric.binary"
+					],
+					"number.integralOctal": [
+						"constant.numeric.octal"
+					],
+					"number.integralDecimal": [
+						"constant.numeric.decimal"
+					],
+					"number.integralHexadecimal": [
+						"constant.numeric.hexadecimal"
+					],
+					"constant": [
+						"constant.other.user-defined"
+					],
+					"class": [
+						"entity.name.type.class"
+					],
+					"function.declaration": [
+						"entity.name.function"
+					],
+					"function.declaration.virtual": [
+						"entity.name.function.virtual"
+					],
+					"keyword": [
+						"keyword.control"
+					],
+					"operator": [
+						"keyword.operator"
+					],
+					"string.single": [
+						"string.quoted.single"
+					],
+					"string.double": [
+						"string.quoted.double"
+					],
+					"string.backtick": [
+						"string.quoted.other.backtick"
+					],
+					"disabled": [
+						"meta.disabled"
+					],
+					"macro": [
+						"meta.preprocessor"
+					],
+					"type.defaultLibrary.primitive": [
+						"support.type.primitive"
+					],
+					"type.defaultLibrary.utility": [
+						"support.type.utility"
+					],
+					"function": [
+						"variable.function"
+					],
+					"function.virtual": [
+						"variable.function.virtual"
+					],
+					"variable.local": [
+						"variable.other.local"
+					],
+					"variable.global": [
+						"variable.other.global"
+					],
+					"property": [
+						"variable.other.property"
+					],
+					"parameter": [
+						"variable.parameter"
+					]
+				}
+			}
+		],
+		"semanticTokenTypes": [
+			{
+				"id": "disabled",
+				"description": "Disabled code."
+			}
+		],
+		"snippets": [
+			{
+				"language": "umajin",
+				"path": "./snippets/umajin.json"
+			},
+			{
+				"language": "json",
+				"path": "./snippets/code-workspace.json"
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run vscode-prepublish-esbuild",
+		"vscode-prepublish-esbuild": "npm run esbuild-package -- --minify",
+		"esbuild-package": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
+		"esbuild": "npm run esbuild-base -- --sourcemap",
+		"esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+		"vscode-prepublish-webpack": "npm run webpack-package",
+		"webpack": "webpack --mode development",
+		"webpack-dev": "webpack --mode development --watch",
+		"webpack-package": "webpack --mode production --devtool hidden-source-map",
+		"vscode-prepublish-vanilla": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"lint": "eslint src --ext ts"
+	},
+	"engines": {
+		"vscode": "^1.67.0"
+	},
+	"dependencies": {
+		"@vscode/debugadapter": "^1.55.1",
+		"vscode-languageclient": "^8.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "16.x",
+		"@types/vscode": "^1.67.0",
+		"@typescript-eslint/eslint-plugin": "^5.16.0",
+		"@typescript-eslint/parser": "^5.16.0",
+		"@vscode/debugprotocol": "^1.55.1",
+		"esbuild": "^0.14.42",
+		"eslint": "^8.11.0",
+		"path": "^0.12.7",
+		"ts-loader": "^9.3.0",
+		"typescript": "^4.5.5",
+		"url": "^0.11.0",
+		"webpack": "^5.72.1",
+		"webpack-cli": "^4.9.2"
+	}
+}
