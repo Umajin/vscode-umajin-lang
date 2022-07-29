@@ -18,6 +18,10 @@
 
 ## [1.2.0] - 2022-07-29
 
+### Added
+
+- Settings for finer control of umajin log format
+
 ### Changed
 
 - Improved Read me

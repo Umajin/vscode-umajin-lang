@@ -126,16 +126,18 @@
 							"applyTo": {
 								"type": "string",
 								"enum": [
-									"message",
 									"sourceInfo",
-									"logLevel"
+									"logProducer",
+									"logLevel",
+									"message"
 								],
 								"default": "message",
 								"description": "Portion of the log entry to apply the search / regex to",
 								"enumDescriptions": [
-									"Message",
 									"Source info",
-									"Log level"
+									"Log producer",
+									"Log level",
+									"Message"
 								]
 							},
 							"action": {
@@ -277,6 +279,56 @@
 								"items": {
 									"type": "string"
 								}
+							},
+							"logFormatEngineSourceInfo": {
+								"type": "boolean",
+								"default": false,
+								"description": "Add engine source info to log messages",
+								"scope": "window"
+							},
+							"logFormatThread": {
+								"type": "boolean",
+								"default": false,
+								"description": "Add thread id to log messages",
+								"scope": "window"
+							},
+							"logFormatTimestamp": {
+								"type": "string",
+								"enum": [
+									"milli",
+									"milli_float",
+									"micro",
+									"world_clock"
+								],
+								"default": "milli",
+								"description": "Timestamp format in log",
+								"enumDescriptions": [
+									"Millisecond",
+									"Millisecond floating point",
+									"Microsecond",
+									"World clock"
+								]
+							},
+							"logLevel": {
+								"type": "string",
+								"enum": [
+									"critical",
+									"error",
+									"warning",
+									"info",
+									"debug",
+									"verbose"
+								],
+								"default": "info",
+								"description": "Log level",
+								"enumDescriptions": [
+									"Critical",
+									"Error",
+									"Warning",
+									"Info",
+									"Debug",
+									"Verbose"
+								]
 							}
 						}
 					}
