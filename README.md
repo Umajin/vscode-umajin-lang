@@ -62,3 +62,255 @@ This extension relies on Umajin Language Server to provide support using an up-t
 - Support for multiple projects in one folder
 
 - Code snippets
+
+## Settings samples
+
+### Semantic highlighting
+
+The following fragment lists all semantic scopes that are used by this extension and the Umajin Language Server.
+
+Make sure you specify colour scheme you are really using. This example uses "Default Light+".
+
+```json
+{
+    "editor.tokenColorCustomizations": {
+        "[Default Light+]": {
+            "textMateRules": [
+                {
+                    "scope": "comment.block",
+                    "settings": {
+                        "foreground": "#8cbb3d",
+                        "fontStyle": "italic"
+                    }
+                },
+                {
+                    "scope": "comment.line.double-slash",
+                    "settings": {
+                        "foreground": "#8cbb3d",
+                        "fontStyle": "italic"
+                    }
+                },
+                {
+                    "scope": "constant.language",
+                    "settings": {
+                        "foreground": "#84660a",
+                        "fontStyle": "bold"
+                    }
+                },
+                {
+                    "scope": "constant.numeric.floating-point",
+                    "settings": {
+                        "foreground": "#ca693c"
+                    }
+                },
+                {
+                    "scope": "constant.numeric.binary",
+                    "settings": {
+                        "foreground": "#93b81c"
+                    }
+                },
+                {
+                    "scope": "constant.numeric.octal",
+                    "settings": {
+                        "foreground": "#e67848"
+                    }
+                },
+                {
+                    "scope": "constant.numeric.decimal",
+                    "settings": {
+                        "foreground": "#a7922e"
+                    }
+                },
+                {
+                    "scope": "constant.numeric.hexadecimal",
+                    "settings": {
+                        "foreground": "#91930d"
+                    }
+                },
+                {
+                    "scope": "constant.other.user-defined",
+                    "settings": {
+                        "foreground": "#84660a"
+                    }
+                },
+                {
+                    "scope": "entity.name.type.class",
+                    "settings": {
+                        "foreground": "#5a0095",
+                        "fontStyle": "bold"
+                    }
+                },
+                {
+                    "scope": "entity.name.function",
+                    "settings": {
+                        "foreground": "#0000b2"
+                    }
+                },
+                {
+                    "scope": "entity.name.function.virtual",
+                    "settings": {
+                        "fontStyle": "italic"
+                    }
+                },
+                {
+                    "scope": "keyword.control",
+                    "settings": {
+                        "foreground": "#801702",
+                        "fontStyle": "bold"
+                    }
+                },
+                {
+                    "scope": "keyword.operator",
+                    "settings": {
+                        "foreground": "#000000",
+                        "fontStyle": ""
+                    }
+                },
+                {
+                    "scope": "string.quoted.double",
+                    "settings": {
+                        "foreground": "#808080"
+                    }
+                },
+                {
+                    "scope": "string.quoted.single",
+                    "settings": {
+                        "foreground": "#808080"
+                    }
+                },
+                {
+                    "scope": "string.quoted.other.backtick",
+                    "settings": {
+                        "foreground": "#808080"
+                    }
+                },
+                {
+                    "scope": "meta.disabled",
+                    "settings": {
+                        "foreground": "#c0c0c0"
+                    }
+                },
+                {
+                    "scope": "meta.preprocessor",
+                    "settings": {
+                        "foreground": "#d9341a",
+                        "fontStyle": ""
+                    }
+                },
+                {
+                    "scope": "support.type.primitive",
+                    "settings": {
+                        "foreground": "#964cbf",
+                        "fontStyle": "bold"
+                    }
+                },
+                {
+                    "scope": "support.type.utility",
+                    "settings": {
+                        "foreground": "#a74f89",
+                        "fontStyle": "bold"
+                    }
+                },
+                {
+                    "scope": "variable.function",
+                    "settings": {
+                        "foreground": "#0000b2"
+                    }
+                },
+                {
+                    "scope": "variable.function.virtual",
+                    "settings": {
+                        "fontStyle": "italic"
+                    }
+                },
+                {
+                    "scope": "variable",
+                    "settings": {
+                        "foreground": "#0040c0"
+                    }
+                },
+                {
+                    "scope": "variable.other.local",
+                    "settings": {
+                        "foreground": "#33a6ef"
+                    }
+                },
+                {
+                    "scope": "variable.other.global",
+                    "settings": {
+                        "foreground": "#1559ef"
+                    }
+                },
+                {
+                    "scope": "variable.other.property",
+                    "settings": {
+                        "foreground": "#106b95"
+                    }
+                },
+                {
+                    "scope": "variable.parameter",
+                    "settings": {
+                        "foreground": "#092e64"
+                    }
+                }
+            ]
+        }
+    }
+}
+```
+
+### Log output highlighting and filtering
+
+Here is a sample of log output highlighting settings based on log level:
+
+```json
+{
+    "umajin.outputHighlighting": [
+        {
+            "applyTo": "logLevel",
+            "asRegex": true,
+            "match": "^CRITICAL$",
+            "background": "#ff0000",
+            "foreground": "#fff2f2",
+            "bold": "on"
+        },
+        {
+            "applyTo": "logLevel",
+            "asRegex": true,
+            "match": "^ERROR$",
+            "background": "#ffcece",
+            "foreground": "#800000",
+            "bold": "on"
+        },
+        {
+            "applyTo": "logLevel",
+            "asRegex": true,
+            "match": "^WARN(?:ING)?$",
+            "background": "#fff3ce",
+            "foreground": "#a25d08"
+        },
+        {
+            "applyTo": "logLevel",
+            "asRegex": true,
+            "match": "^INFO$",
+            "foreground": "#004de8"
+        },
+        {
+            "applyTo": "logLevel",
+            "asRegex": true,
+            "match": "^DEBUG$",
+            "foreground": "#6ac2dd"
+        },
+        {
+            "applyTo": "logLevel",
+            "asRegex": true,
+            "match": "^VERBOSE$",
+            "foreground": "#cddade"
+        }
+    ]
+}
+```
+
+Rules apply in the order they appear in the settings. All colours of matching rules mixed together. For `bold` and `italic` parameters the last matching rule where it is set to "on" or "off" wins.
+
+The log entry is not shown if at least one "remove" `action` matches.
