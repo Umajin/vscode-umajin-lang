@@ -20,6 +20,8 @@
 
 ### Changed
 
+- Improved Read me
+
 - "Apply all code actions" command renamed to "Apply all code actions in Umajin project" to be searchable by "umajin" keyword
 
 ## [1.1.4] - 2022-06-30

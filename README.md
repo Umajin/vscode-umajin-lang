@@ -2,6 +2,26 @@
 
 A Visual Studio Code extension that add support for the Umajin language.
 
+## Getting started
+
+A good point to start is before opening any umajin file is to generate a workspace file.
+Open command pallette and run command "**Generate Umajin VSCode Workspace file**"
+
+![Generate Umajin VSCode Workspace file command](/images/generate-workspace-file-step1.png)
+
+Select the start umajin file.
+
+Auto-generated workspace file will be opened. Save it.
+
+You can immediately open this newly created workspace via the button in the bottom right corner:
+
+![Open Workspace button](/images/generate-workspace-file-step2.png)
+
+If the Umajin Language Server is not in the root folder of your project you can modify it in settings (`umajin.path.languageServer`).
+
+Also note that you can re-generate the standard library with "**Generate Umajin standard library**" command.
+
+If your project was ported from an old compiler syntax and/or triggers many diagnostics, try "**Apply all code actions in Umajin project**" command.
 
 ## Features
 
