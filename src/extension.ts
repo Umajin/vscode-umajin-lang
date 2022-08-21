@@ -598,6 +598,8 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	private _wsPath: string;
 	private _collapseLongMessages: boolean;
 
+	private _child: child_process.ChildProcess | null;
+
 	private _stdoutTail: string = '';
 	private _stderrTail: string = '';
 	private _lastCompilerOutputEvent?: debugprotocol.DebugProtocol.OutputEvent = undefined;
@@ -617,6 +619,8 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		super();
 		this._wsPath = umajin!.getWsPath();
 		this._collapseLongMessages = umajin!.getCollapseLongMessages();
+
+		this._child = null;
 
 		this.setDebuggerLinesStartAt1(true);
 		this.setDebuggerColumnsStartAt1(true);
@@ -683,7 +687,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 
 		this._reLogMessage = new RegExp(reLogMessageString);
 
-		let logLevel : 'critical' | 'error' | 'warning' | 'info' | 'debug' | 'verbose' = 'info';
+		let logLevel: 'critical' | 'error' | 'warning' | 'info' | 'debug' | 'verbose' = 'info';
 		if (launchRequestArgs.logLevel !== undefined) {
 			logLevel = launchRequestArgs.logLevel;
 		}
@@ -735,6 +739,8 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 				}
 
 				uds.sendEvent(new debugadapter.TerminatedEvent());
+
+				this._child = null;
 			})
 			.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
 				{
@@ -747,6 +753,8 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 				}
 
 				uds.sendEvent(new debugadapter.TerminatedEvent());
+
+				this._child = null;
 			});
 
 		child.stdout.setEncoding('utf8');
@@ -759,7 +767,15 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 			uds._processStderr(chunk);
 		});
 
+		this._child = child;
+
 		this.sendResponse(response);
+	}
+
+	protected disconnectRequest(response: debugprotocol.DebugProtocol.DisconnectResponse, args: debugprotocol.DebugProtocol.DisconnectArguments, request?: debugprotocol.DebugProtocol.Request) {
+		if (this._child) {
+			this._child.kill();
+		}
 	}
 
 	private _processStdout(chunk: string) {

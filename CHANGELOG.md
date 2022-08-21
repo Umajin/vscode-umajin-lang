@@ -16,6 +16,12 @@
 
 - Improved performance
 
+## [1.2.1] - 2022-08-22
+
+### Fixed
+
+- "Stop Debugging" command now works
+
 ## [1.2.0] - 2022-07-29
 
 ### Added
