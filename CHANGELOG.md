@@ -16,6 +16,18 @@
 
 - Improved performance
 
+## [1.2.2] - 2022-11-07
+
+### Added
+
+- Syntax highlighting pattern for approximate comparison operators
+
+### Fixed
+
+- Syntax highlighting pattern for floating point numbers
+
+- Do not duplicate apostrophes, quotation marks and backticks inside of strings or comments
+
 ## [1.2.1] - 2022-08-22
 
 ### Fixed
