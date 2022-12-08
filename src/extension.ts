@@ -1,13 +1,16 @@
 'use strict';
 
-import * as fs from 'fs';
-import * as vscode from 'vscode';
-import * as langclient from 'vscode-languageclient/node';
-import * as path from 'path';
+import * as packageJson from './package.json';
+
 import * as child_process from 'child_process';
 import * as debugadapter from '@vscode/debugadapter';
 import * as debugprotocol from '@vscode/debugprotocol';
-import * as packageJson from './package.json';
+import * as fs from 'fs';
+import * as langclient from 'vscode-languageclient/node';
+import * as net from 'net';
+import * as path from 'path';
+import * as semver from 'semver';
+import * as vscode from 'vscode';
 
 interface ILaunchRequestArguments extends debugprotocol.DebugProtocol.LaunchRequestArguments {
 	arguments?: string[];
@@ -137,9 +140,9 @@ class Color {
 			if (match === null) {
 				throw TypeError('Color is not a hex string');
 			}
-			this.red = parseInt(match[1], 16);
-			this.green = parseInt(match[2], 16);
-			this.blue = parseInt(match[3], 16);
+			this.red = parseInt(match[1]!, 16);
+			this.green = parseInt(match[2]!, 16);
+			this.blue = parseInt(match[3]!, 16);
 
 		}
 	}
@@ -496,7 +499,7 @@ class UmajinExtension {
 	}
 
 	private _readConfig() {
-		this._wsPath = vscode.workspace.workspaceFolders![0].uri.fsPath;
+		this._wsPath = vscode.workspace.workspaceFolders![0]!.uri.fsPath;
 
 		this._collapseLongMessages =
 			vscode.workspace.getConfiguration().get('umajin.collapseLongMessages', this._collapseLongMessages);
@@ -553,13 +556,12 @@ class UmajinExtension {
 		this._languageClient.start()
 			.catch(error => {
 				console.error(error);
-				this._languageClient = undefined;
+				delete this._languageClient;
 			});
 	}
 }
 
 let umajin: UmajinExtension | null = null;
-
 
 export function activate(context: vscode.ExtensionContext): void {
 	vscode.workspace.onDidChangeConfiguration(event => {
@@ -607,14 +609,14 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 
 	private _reLogMessage: RegExp = new RegExp('');
 
-	private static readonly _reLogMessageIndexScriptSourceInfo = 1;
-	private static readonly _reLogMessageIndexScriptSourceInfoFile = 2;
-	private static readonly _reLogMessageIndexScriptSourceInfoLine = 3;
-	private static readonly _reLogMessageIndexScriptSourceInfoColumn = 4;
-	private static readonly _reLogMessageIndexWholeMessage = 5;
-	private static readonly _reLogMessageIndexLogProducer = 6;
-	private static readonly _reLogMessageIndexLogLevel = 7;
-	private static readonly _reLogMessageIndexMessage = 8;
+	private static readonly _reLogMessageIndexScriptSourceInfo: number = 1;
+	private static readonly _reLogMessageIndexScriptSourceInfoFile: number = 2;
+	private static readonly _reLogMessageIndexScriptSourceInfoLine: number = 3;
+	private static readonly _reLogMessageIndexScriptSourceInfoColumn: number = 4;
+	private static readonly _reLogMessageIndexWholeMessage: number = 5;
+	private static readonly _reLogMessageIndexLogProducer: number = 6;
+	private static readonly _reLogMessageIndexLogLevel: number = 7;
+	private static readonly _reLogMessageIndexMessage: number = 8;
 
 	public constructor() {
 		super();
@@ -637,12 +639,12 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	protected async launchRequest(response: debugprotocol.DebugProtocol.LaunchResponse, launchRequestArgs: ILaunchRequestArguments) {
 		debugadapter.logger.setup(debugadapter.Logger.LogLevel.Verbose, false, false);
 
-		const uds = this;
+		const uds: UmajinDebugSession = this;
 		this._wsPath = umajin!.getWsPath();
 		this._collapseLongMessages = umajin!.getCollapseLongMessages();
-		const simulateCompiler = umajin!.getSimulateCompiler();
-		const simulatePlatform = umajin!.getSimulatePlatform();
-		const useJit = (simulateCompiler === 'JIT') && ((simulatePlatform === 'native') || (simulatePlatform === (isWindows ? 'win32' : (isOSX ? 'osx' : '<unknown>'))));
+		const simulateCompiler: string = umajin!.getSimulateCompiler();
+		const simulatePlatform: string = umajin!.getSimulatePlatform();
+		const useJit: boolean = (simulateCompiler === 'JIT') && ((simulatePlatform === 'native') || (simulatePlatform === (isWindows ? 'win32' : (isOSX ? 'osx' : '<unknown>'))));
 
 		const program: string = useJit ? umajin!.getUmajinJitFullPath() : umajin!.getUmajincFullPath();
 
@@ -737,27 +739,25 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		};
 		const child = child_process.spawn(program, programArgs, options)
 			.on('error', (err: Error) => {
-				{
 					const event: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(
 						`Umajin launch error: ${err}\n`,
 						'console');
 					uds.sendEvent(event);
-				}
 
 				uds.sendEvent(new debugadapter.TerminatedEvent());
 
 				this._child = null;
 			})
 			.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
-				{
 					const event: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(
 						(signal !== null) ?
 							`Umajin exited with code ${code}, signal ${signal}\n` :
 							`Umajin exited with code ${code}\n`,
 						'console');
 					uds.sendEvent(event);
+				if (code !== null) {
+					uds.sendEvent(new debugadapter.ExitedEvent(code));
 				}
-
 				uds.sendEvent(new debugadapter.TerminatedEvent());
 
 				this._child = null;
@@ -805,23 +805,23 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		let looksLike: 'first' | 'single' | 'extra' = 'single';
 		let emitEnd: boolean = false;
 
-		const match = line.match(this._reLogMessage);
+		const match: RegExpMatchArray | null = line.match(this._reLogMessage);
 		if (match !== null) {
-			if (match[UmajinDebugSession._reLogMessageIndexScriptSourceInfo] !== undefined) {
-				event.body.source = new debugadapter.Source(match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoFile], this.convertDebuggerPathToClient(path.resolve(this._wsPath + path.sep + match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoFile])));
-				event.body.line = this.convertDebuggerLineToClient(parseInt(match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoLine]));
+			if (match[UmajinDebugSession._reLogMessageIndexScriptSourceInfo] !== undefined && match[UmajinDebugSession._reLogMessageIndexScriptSourceInfo]!.length > 0) {
+				event.body.source = new debugadapter.Source(match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoFile]!, this.convertDebuggerPathToClient(path.resolve(this._wsPath + path.sep + match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoFile]!)));
+				event.body.line = this.convertDebuggerLineToClient(parseInt(match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoLine]!));
 				if (match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoColumn] !== undefined) {
-					event.body.column = this.convertDebuggerColumnToClient(parseInt(match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoColumn]));
+					event.body.column = this.convertDebuggerColumnToClient(parseInt(match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoColumn]!));
 				}
 			}
 
 			// applying output highlighting rules
 			const output: string | undefined = umajin!.highlightOutput(
-				match[UmajinDebugSession._reLogMessageIndexScriptSourceInfo],
-				match[UmajinDebugSession._reLogMessageIndexLogProducer],
-				match[UmajinDebugSession._reLogMessageIndexLogLevel],
-				match[UmajinDebugSession._reLogMessageIndexMessage],
-				match[UmajinDebugSession._reLogMessageIndexWholeMessage]);
+				match[UmajinDebugSession._reLogMessageIndexScriptSourceInfo]!,
+				match[UmajinDebugSession._reLogMessageIndexLogProducer]!,
+				match[UmajinDebugSession._reLogMessageIndexLogLevel]!,
+				match[UmajinDebugSession._reLogMessageIndexMessage]!,
+				match[UmajinDebugSession._reLogMessageIndexWholeMessage]!);
 			if (output === undefined) // it was removed
 			{
 				return;
@@ -831,8 +831,8 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 			// collapse long messages
 			if (this._collapseLongMessages) {
 				if (match[UmajinDebugSession._reLogMessageIndexLogProducer] === 'COMPILER') {
-					if (match[UmajinDebugSession._reLogMessageIndexMessage].startsWith('... ') ||
-						match[UmajinDebugSession._reLogMessageIndexMessage].startsWith('(Control this diagnostic via')) {
+					if (match[UmajinDebugSession._reLogMessageIndexMessage]?.startsWith('... ') ||
+						match[UmajinDebugSession._reLogMessageIndexMessage]?.startsWith('(Control this diagnostic via')) {
 						looksLike = 'extra';
 					} else {
 						looksLike = 'first';
@@ -843,23 +843,23 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 
 		// process collapsing long messages - if collapsing is turned off then all of the `if`s below are skipped
 		if (looksLike !== 'extra') {
-			if (this._lastCompilerOutputEvent !== undefined) {
+			if (this._lastCompilerOutputEvent) {
 				if (this._lastCompilerOutputEvent.body.group === 'startCollapsed') {
-					this._lastCompilerOutputEvent.body.group = undefined;
+					delete this._lastCompilerOutputEvent.body.group;
 				} else {
 					emitEnd = true;
 				}
 			}
 		}
 
-		if (this._lastCompilerOutputEvent !== undefined) {
+		if (this._lastCompilerOutputEvent) {
 			if (this._lastCompilerOutputEvent.body.group === 'startCollapsed') {
 				// emit start twice because 'startCollapsed' does not show the source info
 				this.sendEvent(this._lastCompilerOutputEvent);
-				this._lastCompilerOutputEvent.body.group = undefined;
+				delete this._lastCompilerOutputEvent.body.group;
 			}
 			this.sendEvent(this._lastCompilerOutputEvent);
-			this._lastCompilerOutputEvent = undefined;
+			delete this._lastCompilerOutputEvent;
 		}
 
 		if (emitEnd) {
