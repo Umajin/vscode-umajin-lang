@@ -8,14 +8,15 @@
 		["{", "}"],
 		["[", "]"],
 		["(", ")"],
-		["define", "end"],
-		["instance", "end"],
-		["method", "end"],
+		// Everything is turned off due to the problem with `property`. LS should take it over.
+		// ["define", "end"],
+		// ["instance", "end"],
+		// ["method", "end"],
 		// skipping `property` on purpose because it is not necessarily paired with `end`
-		["scope", "end"],
-		["if", "end"],
-		["switch", "end"],
-		["loop", "end"]
+		// ["scope", "end"],
+		// ["if", "end"],
+		// ["switch", "end"],
+		// ["loop", "end"]
 	],
 	// symbols that are auto closed when typing
 	"autoClosingPairs": [
