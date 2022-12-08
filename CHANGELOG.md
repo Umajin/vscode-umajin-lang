@@ -16,6 +16,12 @@
 
 - Improved performance
 
+## [1.2.3] - 2022-12-08
+
+### Added
+
+- Ability to override the root script filename for launching purposes
+
 ## [1.2.2] - 2022-11-07
 
 ### Added

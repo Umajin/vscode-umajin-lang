@@ -15,6 +15,7 @@ interface ILaunchRequestArguments extends debugprotocol.DebugProtocol.LaunchRequ
 	logFormatThread?: boolean,
 	logFormatTimestamp?: 'milli' | 'milli_float' | 'micro' | 'world_clock';
 	logLevel?: 'critical' | 'error' | 'warning' | 'info' | 'debug' | 'verbose';
+	overrideRootFile?: string;
 }
 
 
@@ -692,7 +693,12 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 			logLevel = launchRequestArgs.logLevel;
 		}
 
-		let programArgs: string[] = ['--log-output=stdout', `--log-level=${logLevel}`, `--log-format=${logFormat}`, `--script=${umajin!.getRoot()}`];
+		let rootFile:string = umajin!.getRoot();
+		if (launchRequestArgs.overrideRootFile !== undefined) {
+			rootFile = launchRequestArgs.overrideRootFile;
+		}
+
+		let programArgs: string[] = ['--log-output=stdout', `--log-level=${logLevel}`, `--log-format=${logFormat}`, `--script=${rootFile}`];
 		if (!useJit) {
 			switch (simulatePlatform) {
 				case 'native':
