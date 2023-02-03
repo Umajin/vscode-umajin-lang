@@ -314,7 +314,9 @@ class UmajinExtension {
 			title: 'Select start file',
 			canSelectMany: false,
 			filters: {
+				// eslint-disable-next-line @typescript-eslint/naming-convention
 				'Umajin files': ['u'],
+				// eslint-disable-next-line @typescript-eslint/naming-convention
 				'All files': ['*']
 			}
 		}).then(async rootFileUri => {
