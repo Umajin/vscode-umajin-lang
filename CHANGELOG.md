@@ -22,6 +22,10 @@
 
 - Ability to override the root script filename for launching purposes
 
+### Removed
+
+- Bracket rules are not applied to multiline statements any more due to the problem with the `property` declaration ambiguity
+
 ## [1.2.2] - 2022-11-07
 
 ### Added
