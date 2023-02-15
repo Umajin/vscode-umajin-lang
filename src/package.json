@@ -2,7 +2,7 @@
 	"name": "umajin-lang",
 	"displayName": "Umajin Language",
 	"description": "Provide Umajin language support for Visual Studio Code.",
-	"version": "1.2.3",
+	"version": "1.3.0",
 	"license": "MIT",
 	"publisher": "umajin-kuzmashapran",
 	"private": false,
@@ -71,6 +71,11 @@
 				"title": "Run",
 				"command": "umajin.run",
 				"icon": "$(play)"
+			}
+		],
+		"breakpoints": [
+			{
+				"language": "umajin"
 			}
 		],
 		"configuration": {
@@ -261,6 +266,11 @@
 				}
 			}
 		},
+		"configurationDefaults": {
+			"[umajin]": {
+				"editor.bracketPairColorization.enabled": false
+			}
+		},
 		"debuggers": [
 			{
 				"type": "umajin",
@@ -319,7 +329,7 @@
 									"debug",
 									"verbose"
 								],
-								"default": "info",
+								"default": "debug",
 								"description": "Log level",
 								"enumDescriptions": [
 									"Critical",
@@ -334,6 +344,37 @@
 								"type": "string",
 								"default": "",
 								"description": "The script file to launch",
+								"scope": "window"
+							}
+						}
+					},
+					"attach": {
+						"properties": {
+							"logHost": {
+								"type": "string",
+								"default": "127.0.0.1",
+								"description": "A host name for the log reader to connect to",
+								"scope": "window"
+							},
+							"logPort": {
+								"type": "number",
+								"description": "A port number for the log reader to connect to",
+								"scope": "window"
+							},
+							"logStream": {
+								"type": "boolean",
+								"description": "A flag describing whether the log output is streamed or packeted",
+								"scope": "window"
+							},
+							"debugHost": {
+								"type": "string",
+								"default": "127.0.0.1",
+								"description": "A host name for the log reader to connect to",
+								"scope": "window"
+							},
+							"debugPort": {
+								"type": "number",
+								"description": "A port number for the debugger to connect to",
 								"scope": "window"
 							}
 						}
@@ -354,6 +395,17 @@
 							"type": "umajin",
 							"request": "launch",
 							"name": "Umajin: Run"
+						}
+					},
+					{
+						"label": "Umajin: Attach",
+						"description": "A new configuration for attaching to a running Umajin.",
+						"body": {
+							"type": "umajin",
+							"request": "attach",
+							"logPort": 47223,
+							"debugPort": 21828,
+							"name": "Umajin: Attach"
 						}
 					}
 				]

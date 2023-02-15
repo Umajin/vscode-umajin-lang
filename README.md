@@ -53,7 +53,9 @@ This extension relies on Umajin Language Server to provide support using an up-t
 
 - Scopes folding and brackets jumping
 
-- Running the project (use "Run and Debug")
+- Running the project (use menu "Run -> Run without Debugging")
+
+- Debugging of Umajin using Embedded Intrusive Debugger in the JIT engine (use menu "Run -> Start Debugging")
 
 - Simulation of all supported platforms and JIT/AOT compilation modes
 

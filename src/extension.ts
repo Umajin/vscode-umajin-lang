@@ -21,9 +21,17 @@ interface ILaunchRequestArguments extends debugprotocol.DebugProtocol.LaunchRequ
 	overrideRootFile?: string;
 }
 
+interface IAttachRequestArguments extends debugprotocol.DebugProtocol.AttachRequestArguments {
+	logHost?: string;
+	logPort: number;
+	logStream: boolean;
+	debugHost?: string;
+	debugPort: number;
+}
 
-const isWindows = (process.platform === 'win32');
-const isOSX = (process.platform === 'darwin');
+
+const isWindows: boolean = (process.platform === 'win32');
+const isOSX: boolean = (process.platform === 'darwin');
 
 
 const exeName = isWindows ? function (name: string): string {
@@ -225,8 +233,6 @@ class UmajinExtension {
 						);
 					}
 				}),
-
-				vscode.debug.registerDebugConfigurationProvider('umajin', new DebugConfigurationProvider()),
 
 				vscode.debug.registerDebugAdapterDescriptorFactory('umajin', new DebugAdapterDescriptorFactory())
 			);
@@ -582,22 +588,72 @@ export function deactivate(): void {
 	}
 }
 
-
-class DebugConfigurationProvider implements vscode.DebugConfigurationProvider {
-	resolveDebugConfiguration(folder: vscode.WorkspaceFolder | undefined, config: vscode.DebugConfiguration, token?: vscode.CancellationToken): vscode.ProviderResult<vscode.DebugConfiguration> {
-		config.type = 'umajin';
-		config.name = 'Umajin: Run';
-		config.request = 'launch';
-
-		return config;
-	}
-}
-
 class DebugAdapterDescriptorFactory implements vscode.DebugAdapterDescriptorFactory {
 	createDebugAdapterDescriptor(_session: vscode.DebugSession): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
 		return new vscode.DebugAdapterInlineImplementation(new UmajinDebugSession());
 	}
 }
+
+class BinaryAccumulator {
+	private static readonly _headerSize: number = 4; // sizeof uint32
+
+	private _buffer: Buffer;
+	private _expectHeader: boolean = true;
+	private _expectBytes: number = BinaryAccumulator._headerSize;
+	private _callback: (data: Buffer) => void;
+
+
+	public constructor(callback: (data: Buffer) => void) {
+		this._buffer = Buffer.concat([]);
+		this._callback = callback;
+	}
+
+	public append(incoming: Buffer) {
+		this._buffer = Buffer.concat([this._buffer, incoming]);
+		while (this._buffer.length >= this._expectBytes) {
+			if (this._expectHeader) {
+				this._expectBytes = this._buffer.readUInt32BE(); // network order
+				this._buffer = this._buffer.subarray(BinaryAccumulator._headerSize);
+			} else {
+				this._callback(this._buffer.subarray(0, this._expectBytes));
+				this._buffer = this._buffer.subarray(this._expectBytes);
+				this._expectBytes = BinaryAccumulator._headerSize;
+			}
+			this._expectHeader = !this._expectHeader;
+		}
+	}
+}
+
+class NetRequest {
+	public request: debugprotocol.DebugProtocol.Request;
+	public response: debugprotocol.DebugProtocol.Response;
+	private _callback: (response: debugprotocol.DebugProtocol.Response) => void;
+
+	public constructor(request: debugprotocol.DebugProtocol.Request, response: debugprotocol.DebugProtocol.Response, callback: (response: debugprotocol.DebugProtocol.Response) => void) {
+		this.request = request;
+		this.response = response;
+		this._callback = callback;
+	}
+
+	public callback(fromNet?: any) {
+		if (fromNet) {
+			this.response.success = fromNet.success;
+			if (fromNet.message) {
+				this.response.message = fromNet.message;
+			}
+			if (fromNet.body) {
+				this.response.body = fromNet.body;
+			}
+		}
+		this._callback(this.response);
+	}
+}
+
+type NetRequestList = NetRequest[];
+
+type NetRequestMap = {
+	[key: string]: NetRequest;
+};
 
 class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	private _wsPath: string;
@@ -620,25 +676,140 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	private static readonly _reLogMessageIndexLogLevel: number = 7;
 	private static readonly _reLogMessageIndexMessage: number = 8;
 
+	private _hasDebugger: boolean = false;
+
+	private _debugger: net.Socket | null = null;
+
+	private _debuggingPort: number = 0;
+	private _debuggerConnected: boolean = false;
+
+	private _debuggingInputAccumulator: BinaryAccumulator;
+
+	private _sendOnConnect: NetRequestList = [];
+
+	private _sentRequests: NetRequestMap = {};
+
+	private _netLogger: net.Socket | null = null;
+	private _netLogStream: boolean = false;
+
+	private _loggingInputAccumulator: BinaryAccumulator;
+	private _logSyncing: boolean = true;
+	private _logSyncingPrintables: number = 0;
+
+	// It should _binary_ match the message printed by the JIT Engine
+	// eslint-disable-next-line @typescript-eslint/naming-convention
+	private static readonly _EIDPortMessage: string = "Embedded Intrusive Debugger port: ";
+
+
 	public constructor() {
 		super();
 		this._wsPath = umajin!.getWsPath();
 		this._collapseLongMessages = umajin!.getCollapseLongMessages();
 
 		this._child = null;
+		this._debuggingInputAccumulator = new BinaryAccumulator((data: Buffer) => { this._processDebugging(data); });
+		this._loggingInputAccumulator = new BinaryAccumulator((data: Buffer) => { this._processStdout(data.toString() + '\n'); });
 
 		this.setDebuggerLinesStartAt1(true);
 		this.setDebuggerColumnsStartAt1(true);
 	}
 
-	protected initializeRequest(response: debugprotocol.DebugProtocol.InitializeResponse, args: debugprotocol.DebugProtocol.InitializeRequestArguments): void {
-		response.body = response.body || {};
+	override sendEvent(event: debugprotocol.DebugProtocol.Event): void {
+		super.sendEvent(event);
+	}
+
+	override sendResponse(response: debugprotocol.DebugProtocol.Response): void {
+		super.sendResponse(response);
+	}
+
+	protected override initializeRequest(response: debugprotocol.DebugProtocol.InitializeResponse, args: debugprotocol.DebugProtocol.InitializeRequestArguments): void {
+		const simulateCompiler: string = umajin!.getSimulateCompiler();
+		const simulatePlatform: string = umajin!.getSimulatePlatform();
+		const useJit: boolean = (simulateCompiler === 'JIT') && ((simulatePlatform === 'native') || (simulatePlatform === (isWindows ? 'win32' : (isOSX ? 'osx' : '<unknown>'))));
+
+		const program: string = useJit ? umajin!.getUmajinJitFullPath() : umajin!.getUmajincFullPath();
+
+		let hasCapabilities: boolean = false;
+
+		if (useJit) {
+			// check version
+			const options: child_process.SpawnSyncOptionsWithStringEncoding = {
+				cwd: this._wsPath,
+				encoding: 'utf8'
+			};
+			const versionCheck: child_process.SpawnSyncReturns<string> = child_process.spawnSync(program, ['--version'], options);
+			if (!versionCheck.error && versionCheck.status === 0) {
+				const versionLines: string[] = versionCheck.stdout.split(/\r?\n/).filter((line) => line.startsWith("Version "));
+				if (versionLines.length === 1) {
+					const matched: RegExpMatchArray | null = versionLines[0]!.match(/^Version (\d+\.\d+\.\d+)\.\d+ "[^"]+" [0-9a-fA-F]+$/);
+					if (matched?.length === 2) {
+						this._hasDebugger = semver.gte(matched[1]!, '6.11.0'); // Levin
+					}
+				}
+			}
+			if (this._hasDebugger) {
+				// get capabilities
+				const options: child_process.SpawnSyncOptionsWithStringEncoding = {
+					cwd: this._wsPath,
+					encoding: 'utf8'
+				};
+				const capabilitiesCheck: child_process.SpawnSyncReturns<string> = child_process.spawnSync(program, ['--debugging-capabilities'], options);
+				if (!capabilitiesCheck.error && capabilitiesCheck.status === 0) {
+					response.body = JSON.parse(capabilitiesCheck.stdout);
+					response.body = response.body || {};
+					response.body.supportsTerminateRequest = true;
+					response.body.supportTerminateDebuggee = true;
+					hasCapabilities = true;
+				}
+			}
+		}
+
+		if (!hasCapabilities) {
+			response.body = {
+				supportsTerminateRequest: true,
+				supportTerminateDebuggee: true
+			};
+		}
+
 		this.sendResponse(response);
 
 		this.sendEvent(new debugadapter.InitializedEvent());
 	}
 
-	protected async launchRequest(response: debugprotocol.DebugProtocol.LaunchResponse, launchRequestArgs: ILaunchRequestArguments) {
+	private _createDebugger() {
+		const uds: UmajinDebugSession = this;
+
+		this._debugger = new net.Socket()
+			.on('connect', () => {
+				uds._debuggerConnected = true;
+			})
+			.on('close', (hadError: boolean) => {
+				uds._debuggerConnected = false;
+			})
+			.on('ready', () => {
+				let aLocalCopy: NetRequestList = uds._sendOnConnect;
+				uds._sendOnConnect = [];
+				aLocalCopy.forEach((value: NetRequest) => {
+					uds._sendToDebugger(value);
+				});
+			})
+			.on('data', (data: Buffer) => {
+				uds._debuggingInputAccumulator.append(data);
+			});
+	}
+
+	protected override disconnectRequest(response: debugprotocol.DebugProtocol.DisconnectResponse, args: debugprotocol.DebugProtocol.DisconnectArguments, request?: debugprotocol.DebugProtocol.Request) {
+		if (args) {
+			if (args.terminateDebuggee) {
+				if (this._child) {
+					this._child.kill();
+				}
+			}
+		}
+		this.sendResponse(response);
+	}
+
+	protected override async launchRequest(response: debugprotocol.DebugProtocol.LaunchResponse, launchRequestArgs: ILaunchRequestArguments, request?: debugprotocol.DebugProtocol.Request) {
 		debugadapter.logger.setup(debugadapter.Logger.LogLevel.Verbose, false, false);
 
 		const uds: UmajinDebugSession = this;
@@ -697,7 +868,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 			logLevel = launchRequestArgs.logLevel;
 		}
 
-		let rootFile:string = umajin!.getRoot();
+		let rootFile: string = umajin!.getRoot();
 		if (launchRequestArgs.overrideRootFile !== undefined) {
 			rootFile = launchRequestArgs.overrideRootFile;
 		}
@@ -726,6 +897,12 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 			}
 			programArgs = programArgs.concat(['--print-llvm-ir=none:']);
 		}
+		if (this._hasDebugger && !launchRequestArgs.noDebug) {
+			this._createDebugger();
+			programArgs = programArgs.concat(['--generate-debug-code']);
+		} else {
+			this._debugger = null;
+		}
 		if (launchRequestArgs.arguments !== undefined) {
 			programArgs = programArgs.concat(launchRequestArgs.arguments);
 		}
@@ -741,22 +918,22 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		};
 		const child = child_process.spawn(program, programArgs, options)
 			.on('error', (err: Error) => {
-					const event: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(
-						`Umajin launch error: ${err}\n`,
-						'console');
-					uds.sendEvent(event);
+				const event: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(
+					`Umajin launch error: ${err}\n`,
+					'console');
+				uds.sendEvent(event);
 
 				uds.sendEvent(new debugadapter.TerminatedEvent());
 
 				this._child = null;
 			})
 			.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
-					const event: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(
-						(signal !== null) ?
-							`Umajin exited with code ${code}, signal ${signal}\n` :
-							`Umajin exited with code ${code}\n`,
-						'console');
-					uds.sendEvent(event);
+				const event: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(
+					(signal !== null) ?
+						`Umajin exited with code ${code}, signal ${signal}\n` :
+						`Umajin exited with code ${code}\n`,
+					'console');
+				uds.sendEvent(event);
 				if (code !== null) {
 					uds.sendEvent(new debugadapter.ExitedEvent(code));
 				}
@@ -780,11 +957,218 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		this.sendResponse(response);
 	}
 
-	protected disconnectRequest(response: debugprotocol.DebugProtocol.DisconnectResponse, args: debugprotocol.DebugProtocol.DisconnectArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async attachRequest(response: debugprotocol.DebugProtocol.AttachResponse, attachRequestArgs: IAttachRequestArguments, request?: debugprotocol.DebugProtocol.Request) {
+		const uds: UmajinDebugSession = this;
+
+		this._netLogStream = attachRequestArgs.logStream;
+
+		this._netLogger = new net.Socket()
+			.on('connect', () => {
+				console.log('Net logger connected');
+			})
+			.on('close', (hadError: boolean) => {
+				console.log('Net logger closed, hadError = ' + hadError);
+			})
+			.on('data', (data: Buffer) => {
+				if (uds._netLogStream) {
+					uds._processStdout(data.toString());
+				} else {
+					// First we need to find the start of a message.
+					// The presumptions here are:
+					// a message length is between 4 and 0xffffff bytes long
+					// and no message contain symbols between 0 and 0x1f (inclusive) except tab, lf, and cr.
+					// It means that a combination of 4 printable symbols followed by '\0' signifies that
+					// a message header starts at that '\0'.
+					// Alternatively if it starts with triple '\0' we assume it's a header
+					if (uds._logSyncing) {
+						if (data.length >= 3 && data[0] === 0x00 && data[1] === 0x00 && data[2] === 0x00) {
+							uds._loggingInputAccumulator.append(data);
+							uds._logSyncing = false;
+						}
+						else {
+							for (let i = 0; i < data.length; i++) {
+								if (data[i]! >= 0x20 || data[i] === 0x09 /* tab */ || data[i] === 0x0a /* lf */ || data[i] === 0x0d /* cr */) {
+									uds._logSyncingPrintables++;
+								}
+								else {
+									if (data[i] === 0x00 && uds._logSyncingPrintables >= 4) {
+										uds._loggingInputAccumulator.append(data.slice(i));
+										uds._logSyncing = false;
+										break;
+									}
+									uds._logSyncingPrintables = 0;
+								}
+							}
+						}
+					}
+					else {
+						uds._loggingInputAccumulator.append(data);
+					}
+				}
+			});
+		this._netLogger!.connect(attachRequestArgs.logPort, attachRequestArgs.logHost || '127.0.0.1');
+
+		this._createDebugger();
+		this._debuggingPort = attachRequestArgs.debugPort;
+		this._debugger!.connect(attachRequestArgs.debugPort, attachRequestArgs.debugHost || '127.0.0.1');
+
+		this.sendResponse(response);
+	}
+
+	protected override async terminateRequest(response: debugprotocol.DebugProtocol.TerminateResponse, args: debugprotocol.DebugProtocol.TerminateArguments, request?: debugprotocol.DebugProtocol.Request) {
 		if (this._child) {
 			this._child.kill();
 		}
+		this.sendResponse(response);
 	}
+
+	protected override async restartRequest(response: debugprotocol.DebugProtocol.RestartResponse, args: debugprotocol.DebugProtocol.RestartArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async setBreakPointsRequest(response: debugprotocol.DebugProtocol.SetBreakpointsResponse, args: debugprotocol.DebugProtocol.SetBreakpointsArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async setFunctionBreakPointsRequest(response: debugprotocol.DebugProtocol.SetFunctionBreakpointsResponse, args: debugprotocol.DebugProtocol.SetFunctionBreakpointsArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async setExceptionBreakPointsRequest(response: debugprotocol.DebugProtocol.SetExceptionBreakpointsResponse, args: debugprotocol.DebugProtocol.SetExceptionBreakpointsArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async configurationDoneRequest(response: debugprotocol.DebugProtocol.ConfigurationDoneResponse, args: debugprotocol.DebugProtocol.ConfigurationDoneArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async continueRequest(response: debugprotocol.DebugProtocol.ContinueResponse, args: debugprotocol.DebugProtocol.ContinueArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async nextRequest(response: debugprotocol.DebugProtocol.NextResponse, args: debugprotocol.DebugProtocol.NextArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async stepInRequest(response: debugprotocol.DebugProtocol.StepInResponse, args: debugprotocol.DebugProtocol.StepInArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async stepOutRequest(response: debugprotocol.DebugProtocol.StepOutResponse, args: debugprotocol.DebugProtocol.StepOutArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async stepBackRequest(response: debugprotocol.DebugProtocol.StepBackResponse, args: debugprotocol.DebugProtocol.StepBackArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async reverseContinueRequest(response: debugprotocol.DebugProtocol.ReverseContinueResponse, args: debugprotocol.DebugProtocol.ReverseContinueArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async restartFrameRequest(response: debugprotocol.DebugProtocol.RestartFrameResponse, args: debugprotocol.DebugProtocol.RestartFrameArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async gotoRequest(response: debugprotocol.DebugProtocol.GotoResponse, args: debugprotocol.DebugProtocol.GotoArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async pauseRequest(response: debugprotocol.DebugProtocol.PauseResponse, args: debugprotocol.DebugProtocol.PauseArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async sourceRequest(response: debugprotocol.DebugProtocol.SourceResponse, args: debugprotocol.DebugProtocol.SourceArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async threadsRequest(response: debugprotocol.DebugProtocol.ThreadsResponse, request?: debugprotocol.DebugProtocol.Request) {
+		if (this._child || this._debuggerConnected) {
+			response.body = { threads: [{ id: 0, name: 'Umajin' }] };
+		}
+		this.sendResponse(response);
+	}
+
+	protected override async terminateThreadsRequest(response: debugprotocol.DebugProtocol.TerminateThreadsResponse, args: debugprotocol.DebugProtocol.TerminateThreadsArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async stackTraceRequest(response: debugprotocol.DebugProtocol.StackTraceResponse, args: debugprotocol.DebugProtocol.StackTraceArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async scopesRequest(response: debugprotocol.DebugProtocol.ScopesResponse, args: debugprotocol.DebugProtocol.ScopesArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async variablesRequest(response: debugprotocol.DebugProtocol.VariablesResponse, args: debugprotocol.DebugProtocol.VariablesArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async setVariableRequest(response: debugprotocol.DebugProtocol.SetVariableResponse, args: debugprotocol.DebugProtocol.SetVariableArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async setExpressionRequest(response: debugprotocol.DebugProtocol.SetExpressionResponse, args: debugprotocol.DebugProtocol.SetExpressionArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async evaluateRequest(response: debugprotocol.DebugProtocol.EvaluateResponse, args: debugprotocol.DebugProtocol.EvaluateArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async stepInTargetsRequest(response: debugprotocol.DebugProtocol.StepInTargetsResponse, args: debugprotocol.DebugProtocol.StepInTargetsArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async gotoTargetsRequest(response: debugprotocol.DebugProtocol.GotoTargetsResponse, args: debugprotocol.DebugProtocol.GotoTargetsArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async completionsRequest(response: debugprotocol.DebugProtocol.CompletionsResponse, args: debugprotocol.DebugProtocol.CompletionsArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async exceptionInfoRequest(response: debugprotocol.DebugProtocol.ExceptionInfoResponse, args: debugprotocol.DebugProtocol.ExceptionInfoArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async loadedSourcesRequest(response: debugprotocol.DebugProtocol.LoadedSourcesResponse, args: debugprotocol.DebugProtocol.LoadedSourcesArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async dataBreakpointInfoRequest(response: debugprotocol.DebugProtocol.DataBreakpointInfoResponse, args: debugprotocol.DebugProtocol.DataBreakpointInfoArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async setDataBreakpointsRequest(response: debugprotocol.DebugProtocol.SetDataBreakpointsResponse, args: debugprotocol.DebugProtocol.SetDataBreakpointsArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async readMemoryRequest(response: debugprotocol.DebugProtocol.ReadMemoryResponse, args: debugprotocol.DebugProtocol.ReadMemoryArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async writeMemoryRequest(response: debugprotocol.DebugProtocol.WriteMemoryResponse, args: debugprotocol.DebugProtocol.WriteMemoryArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async disassembleRequest(response: debugprotocol.DebugProtocol.DisassembleResponse, args: debugprotocol.DebugProtocol.DisassembleArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async cancelRequest(response: debugprotocol.DebugProtocol.CancelResponse, args: debugprotocol.DebugProtocol.CancelArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this.sendResponse(response);
+	}
+
+	protected override async breakpointLocationsRequest(response: debugprotocol.DebugProtocol.BreakpointLocationsResponse, args: debugprotocol.DebugProtocol.BreakpointLocationsArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
+	protected override async setInstructionBreakpointsRequest(response: debugprotocol.DebugProtocol.SetInstructionBreakpointsResponse, args: debugprotocol.DebugProtocol.SetInstructionBreakpointsArguments, request?: debugprotocol.DebugProtocol.Request) {
+		this._redirectToDebugger(response, request);
+	}
+
 
 	private _processStdout(chunk: string) {
 		this._stdoutTail = this._processChunk(this._stdoutTail + chunk, 'stdout');
@@ -872,12 +1256,84 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		}
 
 		if (looksLike === 'single') {
+			if (this._debugger !== null && !this._debugger.connecting && !this._debuggerConnected && match !== null) {
+				const messageItself: string = match[UmajinDebugSession._reLogMessageIndexMessage]!;
+				if (messageItself.startsWith(UmajinDebugSession._EIDPortMessage)) {
+					this._debuggingPort = Number(messageItself.substring(UmajinDebugSession._EIDPortMessage.length));
+					this._connectToDebugger();
+				}
+			}
 			this.sendEvent(event);
 		} else {
 			this._lastCompilerOutputEvent = event;
 			if (looksLike === 'first') {
 				this._lastCompilerOutputEvent.body.group = 'startCollapsed';
 			}
+		}
+	}
+
+	private _connectToDebugger() {
+		if (this._debugger && this._debuggingPort !== 0) {
+			this._debugger.connect(this._debuggingPort);
+		}
+	}
+
+	private _processDebugging(data: Buffer) {
+		const message: any = JSON.parse(data.toString('utf-8'));
+		if (message.type === 'response') {
+			if (message.request_seq !== undefined) {
+				if (this._sentRequests[message.request_seq] !== undefined) {
+					this._sentRequests[message.request_seq]!.callback(message);
+					delete this._sentRequests[message.request_seq];
+				}
+				else {
+					console.log('Received message\'s request_seq didn\'t match any of saved requests');
+				}
+			}
+			else {
+				console.log('Received message does not have request_seq');
+			}
+		}
+		else if (message.type === 'event') {
+			this.sendEvent(message);
+		}
+		else if (message.type === 'request') {
+			console.log('Do not know how to process requests');
+		}
+		else if (message.type !== undefined) {
+			console.log(`Do not know how to process message ${message.type}`);
+		}
+		else if (message.type !== undefined) {
+			console.log('Do not know how to process a message without type');
+		}
+	}
+
+	private _redirectToDebugger(response: debugprotocol.DebugProtocol.Response, request?: debugprotocol.DebugProtocol.Request) {
+		if (request) {
+			this._sendToDebugger(new NetRequest(request, response, (response: debugprotocol.DebugProtocol.Response) => {
+				this.sendResponse(response);
+			}));
+		}
+	}
+
+	private _sendToDebugger(request: NetRequest) {
+		if (this._debugger) {
+			if (this._debuggerConnected) {
+				// store for reply matching
+				this._sentRequests[request.request.seq] = request;
+				const data: Buffer = Buffer.from(JSON.stringify(request.request), "utf-8");
+				let header: Buffer = Buffer.alloc(4);
+				header.writeUInt32BE(data.length); // network order
+				this._debugger.write(header);
+				this._debugger.write(data);
+			}
+			else {
+				// store to be sent on connect
+				this._sendOnConnect.push(request);
+			}
+		}
+		else {
+			request.callback();
 		}
 	}
 }

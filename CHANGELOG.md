@@ -16,6 +16,12 @@
 
 - Improved performance
 
+## [1.3.0] - 2023-02-16
+
+### Added
+
+- Support for Embedded Intrusive Debugger in Umajin JIT engine
+
 ## [1.2.3] - 2022-12-08
 
 ### Added
