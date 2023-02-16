@@ -2,7 +2,7 @@
 	"name": "umajin-lang",
 	"displayName": "Umajin Language",
 	"description": "Provide Umajin language support for Visual Studio Code.",
-	"version": "1.3.1",
+	"version": "1.3.2",
 	"license": "MIT",
 	"publisher": "umajin-kuzmashapran",
 	"private": false,
@@ -31,12 +31,12 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/kuzmas/vscode-umajin-lang.git"
+		"url": "https://github.com/Umajin/vscode-umajin-lang.git"
 	},
 	"bug": {
-		"url": "https://github.com/kuzmas/vscode-umajin-lang/issues"
+		"url": "https://github.com/Umajin/vscode-umajin-lang/issues"
 	},
-	"homepage": "https://github.com/kuzmas/vscode-umajin-lang",
+	"homepage": "https://github.com/Umajin/vscode-umajin-lang",
 	"icon": "images/umajin-logo.png",
 	"galleryBanner": {
 		"color": "#23323d",

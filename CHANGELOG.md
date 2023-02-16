@@ -16,6 +16,12 @@
 
 - Improved performance
 
+## [1.3.2] - 2023-02-16
+
+### Changed
+
+- Source code transferred to the Umajin organisation
+
 ## [1.3.1] - 2023-02-16
 
 ### Added
