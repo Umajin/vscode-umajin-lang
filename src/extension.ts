@@ -187,7 +187,7 @@ class ColorMixer {
 
 class UmajinExtension {
 	private _context: vscode.ExtensionContext;
-	private _languageClient?: langclient.LanguageClient = undefined;
+	private _languageClient?: langclient.LanguageClient | null = null;
 
 	private _wsPath: string = '';
 
@@ -206,10 +206,11 @@ class UmajinExtension {
 
 		this._context.subscriptions.push(
 			vscode.commands.registerCommand('umajin.generateStdLib', this.generateStdLib),
-
 			vscode.commands.registerCommand('umajin.generateWorkspace', this.generateWorkspace),
-
-			vscode.commands.registerCommand('umajin.applyAllCodeActions', this.applyAllCodeActions)
+			vscode.commands.registerCommand('umajin.applyAllCodeActions', this.applyAllCodeActions),
+			vscode.commands.registerCommand('umajin.stopLanguageClient', this.stopLanguageClient),
+			vscode.commands.registerCommand('umajin.startLanguageClient', this.startLanguageClient),
+			vscode.commands.registerCommand('umajin.statusLanguageClient', this.statusLanguageClient)
 		);
 
 		if (vscode.workspace.workspaceFolders !== undefined) {
@@ -240,9 +241,7 @@ class UmajinExtension {
 	}
 
 	public destruct() {
-		if (this._languageClient) {
-			this._languageClient.stop();
-		}
+		this._stopLanguageClient();
 	}
 
 
@@ -540,32 +539,73 @@ class UmajinExtension {
 			vscode.workspace.getConfiguration().get('umajin.simulate.platform', this._simulatePlatform);
 	}
 
-	private async _restartLanguageClient() {
+	public stopLanguageClient() {
+		const self: UmajinExtension = umajin!;
+		if (self._stopLanguageClient()) {
+			vscode.window.showInformationMessage('Umajin Language Client is stopped.');
+		} else {
+			vscode.window.showErrorMessage('Cannot stop Umajin Language Client: it was not running.');
+		}
+	}
+
+	public startLanguageClient() {
+		const self: UmajinExtension = umajin!;
+		if (self._startLanguageClient()) {
+			vscode.window.showInformationMessage('Umajin Language Client is started.');
+		} else {
+			vscode.window.showErrorMessage('Cannot start Umajin Language Client: it was already running.');
+		}
+	}
+
+	public statusLanguageClient() {
+		const self: UmajinExtension = umajin!;
+		vscode.window.showInformationMessage(self._languageClient
+			? 'Umajin Language Client is running.'
+			: 'Umajin Language Client is not running.');
+	}
+
+	private _stopLanguageClient(): boolean {
 		if (this._languageClient) {
 			this._languageClient.stop();
+			delete this._languageClient;
+			this._languageClient = null;
+			return true;
 		}
+		return false;
+	}
 
-		const serverOptions: langclient.ServerOptions = {
-			command: (this._languageServerCommand !== '') ? this._languageServerCommand : this._umajinlsFullPath,
-			args: this._languageServerArguments
-		};
+	private _startLanguageClient(): boolean {
+		if (!this._languageClient) {
+			const serverOptions: langclient.ServerOptions = {
+				command: (this._languageServerCommand !== '') ? this._languageServerCommand : this._umajinlsFullPath,
+				args: this._languageServerArguments
+			};
 
-		const clientOptions: langclient.LanguageClientOptions = {
-			documentSelector: [{ scheme: 'file', language: 'umajin' }]
-		};
+			const clientOptions: langclient.LanguageClientOptions = {
+				documentSelector: [{ scheme: 'file', language: 'umajin' }]
+			};
 
-		this._languageClient = new langclient.LanguageClient(
-			'umajinls',
-			'Umajin Language Server',
-			serverOptions,
-			clientOptions
-		);
+			this._languageClient = new langclient.LanguageClient(
+				'umajinls',
+				'Umajin Language Server',
+				serverOptions,
+				clientOptions
+			);
 
-		this._languageClient.start()
-			.catch(error => {
-				console.error(error);
-				delete this._languageClient;
-			});
+			this._languageClient.start()
+				.catch(error => {
+					console.error(error);
+					delete this._languageClient;
+					this._languageClient = null;
+				});
+			return true;
+		}
+		return false;
+	}
+
+	private _restartLanguageClient() {
+		this._stopLanguageClient();
+		this._startLanguageClient();
 	}
 }
 

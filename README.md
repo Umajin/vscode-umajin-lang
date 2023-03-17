@@ -23,6 +23,22 @@ Also note that you can re-generate the standard library with "**Generate Umajin 
 
 If your project was ported from an old compiler syntax and/or triggers many diagnostics, try "**Apply all code actions in Umajin project**" command.
 
+## Swithcing branches on Windows
+
+Since Umajin Language Server is usually tracked by a source version control and Windows locks launched executable files it is problematic to switch a branch while the Language Server is running.
+
+To overcome this problem there are commands to manually stop it before and start it after the branch switching.
+
+The commands are called:
+
+- `Stop Umajin Language Client`,
+
+- `Start Umajin Language Client`, and
+
+- `Report the status of Umajin Language Client`.
+
+They all output the outcome with a message in the bottom right corner.
+
 ## Features
 
 This extension relies on Umajin Language Server to provide support using an up-to-date object model.

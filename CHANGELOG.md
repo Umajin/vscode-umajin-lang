@@ -16,6 +16,12 @@
 
 - Improved performance
 
+## [1.3.3] - 2023-03-17
+
+### Added
+
+- Commands to start and stop the Language Client manually
+
 ## [1.3.2] - 2023-02-16
 
 ### Changed

@@ -2,7 +2,7 @@
 	"name": "umajin-lang",
 	"displayName": "Umajin Language",
 	"description": "Provide Umajin language support for Visual Studio Code.",
-	"version": "1.3.2",
+	"version": "1.3.3",
 	"license": "MIT",
 	"publisher": "umajin-kuzmashapran",
 	"private": false,
@@ -50,13 +50,16 @@
 		"onCommand:umajin.generateStdLib",
 		"onCommand:umajin.generateWorkspace",
 		"onCommand:umajin.applyAllCodeActions",
+		"onCommand:umajin.stopLanguageClient",
+		"onCommand:umajin.startLanguageClient",
+		"onCommand:umajin.statusLanguageClient",
 		"workspaceContains:**/umajin"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"title": "Generate Umajin standard library",
+				"title": "Generate Umajin Standard Library",
 				"command": "umajin.generateStdLib"
 			},
 			{
@@ -66,6 +69,18 @@
 			{
 				"title": "Apply all code actions in Umajin project",
 				"command": "umajin.applyAllCodeActions"
+			},
+			{
+				"title": "Stop Umajin Language Client",
+				"command": "umajin.stopLanguageClient"
+			},
+			{
+				"title": "Start Umajin Language Client",
+				"command": "umajin.startLanguageClient"
+			},
+			{
+				"title": "Report the status of Umajin Language Client",
+				"command": "umajin.statusLanguageClient"
 			},
 			{
 				"title": "Run",
@@ -617,18 +632,18 @@
 		"vscode-languageclient": "^8.1.0"
 	},
 	"devDependencies": {
-		"@types/node": "^16.18.12",
-		"@types/vscode": "^1.75.1",
-		"@typescript-eslint/eslint-plugin": "^5.52.0",
-		"@typescript-eslint/parser": "^5.52.0",
+		"@types/node": "^16.18.16",
+		"@types/vscode": "^1.76.0",
+		"@typescript-eslint/eslint-plugin": "^5.55.0",
+		"@typescript-eslint/parser": "^5.55.0",
 		"@vscode/debugprotocol": "^1.58.0",
 		"esbuild": "^0.14.54",
-		"eslint": "^8.34.0",
+		"eslint": "^8.36.0",
 		"path": "^0.12.7",
 		"ts-loader": "^9.4.2",
 		"typescript": "^4.9.5",
 		"url": "^0.11.0",
-		"webpack": "^5.75.0",
+		"webpack": "^5.76.2",
 		"webpack-cli": "^4.10.0"
 	}
 }
