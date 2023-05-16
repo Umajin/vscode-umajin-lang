@@ -16,6 +16,12 @@
 
 - Improved performance
 
+## [1.3.4] - 2023-05-16
+
+### Added
+
+- Open engine docs command and settings to assist the Hover support in Umajin Language Server
+
 ## [1.3.3] - 2023-03-17
 
 ### Added

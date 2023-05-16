@@ -188,10 +188,15 @@ class ColorMixer {
 class UmajinExtension {
 	private _context: vscode.ExtensionContext;
 	private _languageClient?: langclient.LanguageClient | null = null;
+	private _serverVersion: string = '';
 
 	private _wsPath: string = '';
 
 	private _collapseLongMessages: boolean = packageJson.contributes.configuration.properties['umajin.collapseLongMessages'].default;
+	private _engineHelpLocalIgnoreVersion: boolean = packageJson.contributes.configuration.properties['umajin.engineHelp.local.ignoreVersion'].default;
+	private _engineHelpLocalPath: string = packageJson.contributes.configuration.properties['umajin.engineHelp.local.path'].default;
+	private _engineHelpRemoteServer: string = packageJson.contributes.configuration.properties['umajin.engineHelp.remote.server'].default;
+	private _engineHelpRemoteSecure: boolean = packageJson.contributes.configuration.properties['umajin.engineHelp.remote.secure'].default;
 	private _languageServerCommand: string = packageJson.contributes.configuration.properties['umajin.advanced.languageServer.command'].default;
 	private _languageServerArguments: string[] = packageJson.contributes.configuration.properties['umajin.advanced.languageServer.arguments'].default;
 	private _umajincFullPath: string = packageJson.contributes.configuration.properties['umajin.path.compiler'].default;
@@ -210,7 +215,8 @@ class UmajinExtension {
 			vscode.commands.registerCommand('umajin.applyAllCodeActions', this.applyAllCodeActions),
 			vscode.commands.registerCommand('umajin.stopLanguageClient', this.stopLanguageClient),
 			vscode.commands.registerCommand('umajin.startLanguageClient', this.startLanguageClient),
-			vscode.commands.registerCommand('umajin.statusLanguageClient', this.statusLanguageClient)
+			vscode.commands.registerCommand('umajin.statusLanguageClient', this.statusLanguageClient),
+			vscode.commands.registerCommand('umajin.openEngineHelp', this.openEngineHelp)
 		);
 
 		if (vscode.workspace.workspaceFolders !== undefined) {
@@ -511,6 +517,18 @@ class UmajinExtension {
 		this._collapseLongMessages =
 			vscode.workspace.getConfiguration().get('umajin.collapseLongMessages', this._collapseLongMessages);
 
+		this._engineHelpLocalIgnoreVersion =
+			vscode.workspace.getConfiguration().get('umajin.engineHelp.local.ignoreVersion', this._engineHelpLocalIgnoreVersion);
+
+		this._engineHelpLocalPath =
+			vscode.workspace.getConfiguration().get('umajin.engineHelp.local.path', this._engineHelpLocalPath);
+
+		this._engineHelpRemoteServer =
+			vscode.workspace.getConfiguration().get('umajin.engineHelp.remote.server', this._engineHelpRemoteServer);
+
+		this._engineHelpRemoteSecure =
+			vscode.workspace.getConfiguration().get('umajin.engineHelp.remote.secure', this._engineHelpRemoteSecure);
+
 		this._languageServerCommand =
 			vscode.workspace.getConfiguration().get('umajin.advanced.languageServer.command', this._languageServerCommand);
 
@@ -567,11 +585,16 @@ class UmajinExtension {
 	private _stopLanguageClient(): boolean {
 		if (this._languageClient) {
 			this._languageClient.stop();
-			delete this._languageClient;
-			this._languageClient = null;
+			this._deleteLanguageClient();
 			return true;
 		}
 		return false;
+	}
+
+	private _deleteLanguageClient() {
+		delete this._languageClient;
+		this._languageClient = null;
+		this._serverVersion = '';
 	}
 
 	private _startLanguageClient(): boolean {
@@ -582,7 +605,16 @@ class UmajinExtension {
 			};
 
 			const clientOptions: langclient.LanguageClientOptions = {
-				documentSelector: [{ scheme: 'file', language: 'umajin' }]
+				documentSelector: [
+					{
+						scheme: 'file',
+						language: 'umajin'
+					}
+				],
+				markdown: {
+					isTrusted: true,
+					supportHtml: true
+				}
 			};
 
 			this._languageClient = new langclient.LanguageClient(
@@ -593,10 +625,23 @@ class UmajinExtension {
 			);
 
 			this._languageClient.start()
+				.then(() => {
+					const initializeResult = this._languageClient!.initializeResult;
+					if (initializeResult) {
+						const serverInfo = initializeResult.serverInfo;
+						if (serverInfo) {
+							if (serverInfo.name === 'UmajinLS') {
+								const version = serverInfo.version;
+								if (version) {
+									this._serverVersion = version;
+								}
+							}
+						}
+					}
+				})
 				.catch(error => {
 					console.error(error);
-					delete this._languageClient;
-					this._languageClient = null;
+					this._deleteLanguageClient();
 				});
 			return true;
 		}
@@ -606,6 +651,82 @@ class UmajinExtension {
 	private _restartLanguageClient() {
 		this._stopLanguageClient();
 		this._startLanguageClient();
+	}
+
+	public async openEngineHelp(args: Object) {
+		const self: UmajinExtension = umajin!;
+
+		if (self._serverVersion === '') {
+			vscode.window.showErrorMessage('Cannot generate link for engine help: version unknown');
+		}
+		else {
+			let section: string = '';
+			if (args !== undefined && 'section' in args) {
+				section = args.section as string;
+			}
+
+			let type: string;
+			if (args !== undefined && 'type' in args) {
+				type = args.type as string;
+			} else {
+				const typedType = await vscode.window.showInputBox({
+					prompt: "Umajin type"
+				});
+
+				if (typedType !== undefined) {
+					type = typedType;
+
+					const typedSection = await vscode.window.showInputBox({
+						prompt: "Input constant, property, method, event name or leave empty for the type itself"
+					});
+
+					if (typedSection !== undefined) {
+						section = typedSection;
+					}
+				}
+				else {
+					return;
+				}
+			}
+
+			const local = self._engineHelpLocalPath;
+			const remote =
+				(self._engineHelpRemoteSecure ? 'https' : 'http') + '://' +
+				self._engineHelpRemoteServer + '/' + self._serverVersion;
+
+			const path = '/library/' + type + '.html';
+
+			let useLocal = false;
+
+			let fullPath = makeAbsolute(self._wsPath, local, path);
+			if (fs.existsSync(fullPath)) {
+				if (self._engineHelpLocalIgnoreVersion) {
+					useLocal = true;
+				}
+				else {
+					let versionCheckPath = makeAbsolute(self._wsPath, local, 'version.txt');
+					if (fs.existsSync(versionCheckPath)) {
+						const versionCheck = fs.readFileSync(versionCheckPath, 'utf-8');
+						if (versionCheck && versionCheck === self._serverVersion) {
+							useLocal = true;
+						}
+					}
+				}
+			}
+			if (useLocal) {
+				fullPath = 'file://' + fullPath;
+			}
+			else {
+				fullPath = remote + path;
+			}
+
+			if (section !== '') {
+				fullPath += '#' + type + '_' + section;
+			}
+			const command = isOSX ? 'open' : (isWindows ? 'start' : 'xdg-open');
+			child_process.exec(`${command} "${fullPath}"`);
+
+		}
 	}
 }
 
