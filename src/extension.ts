@@ -33,6 +33,26 @@ interface IAttachRequestArguments extends debugprotocol.DebugProtocol.AttachRequ
 const isWindows: boolean = (process.platform === 'win32');
 const isOSX: boolean = (process.platform === 'darwin');
 
+const operatorSymbols: Record<string, string> = {
+	/* eslint-disable @typescript-eslint/naming-convention */
+	'-': 'minus',
+	'!': 'excl',
+	'~': 'tilde',
+	'=': 'equal',
+	'+': 'plus',
+	'*': 'star',
+	'/': 'slash',
+	'%': 'percent',
+	'&': 'and',
+	'|': 'bar',
+	'^': 'hat',
+	'<': 'less',
+	'>': 'greater',
+	'[]': 'brackets',
+	/* eslint-enable @typescript-eslint/naming-convention */
+};
+
+
 
 const exeName = isWindows ? function (name: string): string {
 	return name + '.exe';
@@ -669,19 +689,20 @@ class UmajinExtension {
 			if (args !== undefined && 'type' in args) {
 				type = args.type as string;
 			} else {
-				const typedType = await vscode.window.showInputBox({
-					prompt: "Umajin type"
+				const typed = await vscode.window.showInputBox({
+					prompt: "Umajin type, constant, property, method, or event name or signature"
 				});
 
-				if (typedType !== undefined) {
-					type = typedType;
+				if (typed !== undefined) {
+					const splitted = typed.match(/^([^:.]+)(?:(?:::|\.)\w+.*)?$/);
+					if (splitted === null) {
+						return;
+					}
 
-					const typedSection = await vscode.window.showInputBox({
-						prompt: "Input constant, property, method, event name or leave empty for the type itself"
-					});
+					type = splitted[1]!; // if it matched then [1] is defined
 
-					if (typedSection !== undefined) {
-						section = typedSection;
+					if (splitted[0] !== undefined) {
+						section = splitted[0];
 					}
 				}
 				else {
@@ -721,7 +742,32 @@ class UmajinExtension {
 			}
 
 			if (section !== '') {
-				fullPath += '#' + type + '_' + section;
+				if (section.includes('operator ')) {
+					let skip = true;
+					section = section.split(/operator /).map(part => {
+						if (skip) {
+							skip = false;
+							return part;
+						} else {
+							let parts = part.split(/(\()/);
+							if (parts.length > 0) {
+								parts[0] = 'operator_' + parts[0]!
+									.split(/([-!~=+*/%|^<>]|\[\])/)
+									.filter(subpart => subpart.length > 0)
+									.map(subpart => operatorSymbols[subpart] || subpart)
+									.join('_');
+							}
+							return parts.join('');
+						}
+					}).join('');
+				}
+				section = section
+					.replace('::', '--')
+					.replace('.', '-')
+					.replace(',', '-')
+					.replace('(', '-')
+					.replace(')', '');
+				fullPath += '#' + section;
 			}
 			const command = isOSX ? 'open' : (isWindows ? 'start' : 'xdg-open');
 			child_process.exec(`${command} "${fullPath}"`);

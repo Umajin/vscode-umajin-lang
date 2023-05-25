@@ -16,6 +16,12 @@
 
 - Improved performance
 
+## [1.3.5] - 2023-05-25
+
+### Changed
+
+- Improved parsing of `umajin.openEngineHelp` command argument
+
 ## [1.3.4] - 2023-05-16
 
 ### Added
