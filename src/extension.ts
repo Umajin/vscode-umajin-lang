@@ -948,7 +948,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 			if (!versionCheck.error && versionCheck.status === 0) {
 				const versionLines: string[] = versionCheck.stdout.split(/\r?\n/).filter((line) => line.startsWith("Version "));
 				if (versionLines.length === 1) {
-					const matched: RegExpMatchArray | null = versionLines[0]!.match(/^Version (\d+\.\d+\.\d+)\.\d+ "[^"]+" [0-9a-fA-F]+$/);
+					const matched: RegExpMatchArray | null = versionLines[0]!.match(/^Version (\d+\.\d+\.\d+)\.\d+(?:-\S+)? "[^"]+" [0-9a-fA-F]+$/);
 					if (matched?.length === 2) {
 						this._hasDebugger = semver.gte(matched[1]!, '6.11.0'); // Levin
 					}

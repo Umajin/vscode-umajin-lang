@@ -16,6 +16,12 @@
 
 - Improved performance
 
+## [1.3.6] - 2023-06-08
+
+### Fixed
+
+- JIT's version detection for debugging
+
 ## [1.3.5] - 2023-05-25
 
 ### Changed
