@@ -59,15 +59,17 @@ This extension relies on Umajin Language Server to provide support using an up-t
 
 - Navigation to the base method (use "go to definition" from `override` keyword)
 
-- Find usages of a given symbol in the whole project (use "references" from the symbol)
+- Search for usages of a given symbol in the whole project (use "references" from the symbol)
 
-- Find all overrides for a given method (use "references" from `method` keyword)
+- Search for all overrides for a given method (use "references" from `method` keyword)
 
 - Contextual code completion
 
-- Ability to (re-)generate the Umajin Standard Library using a command
-
 - Scopes folding and brackets jumping
+
+- Auto-formatting
+
+- Ability to (re-)generate the Umajin Standard Library using a command
 
 - Running the project (use menu "Run -> Run without Debugging")
 
@@ -279,7 +281,7 @@ Make sure you specify colour scheme you are really using. This example uses "Def
 
 ### Log output highlighting and filtering
 
-Here is a sample of log output highlighting settings based on log level:
+Here is a sample of log output highlighting settings based on log levels and one rule to highligh personal log messages:
 
 ```json
 {
@@ -324,6 +326,13 @@ Here is a sample of log output highlighting settings based on log level:
             "asRegex": true,
             "match": "^VERBOSE$",
             "foreground": "#cddade"
+        },
+        {
+            "applyTo": "message",
+            "asRegex": true,
+            "match": "^\\[your_name\\]",
+            "background": "#ffd8ff",
+            "foreground": "#7b087b"
         }
     ]
 }

@@ -6,8 +6,6 @@
 
 - Signature help (overload selection)
 
-- Auto-formatting
-
 - Call hierarchy
 
 - Type hierarchy
@@ -15,6 +13,12 @@
 - Improved code completion
 
 - Improved performance
+
+## [1.4.0] - 2023-08-11
+
+### Added
+
+- Provision for auto-formatting settings schema
 
 ## [1.3.6] - 2023-06-08
 
