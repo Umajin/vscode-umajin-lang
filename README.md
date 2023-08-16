@@ -67,7 +67,7 @@ This extension relies on Umajin Language Server to provide support using an up-t
 
 - Scopes folding and brackets jumping
 
-- Auto-formatting
+- Auto-formatting of all files, open files, current file, or a fragment in a file
 
 - Ability to (re-)generate the Umajin Standard Library using a command
 

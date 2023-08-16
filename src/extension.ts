@@ -233,6 +233,7 @@ class UmajinExtension {
 			vscode.commands.registerCommand('umajin.generateStdLib', this.generateStdLib),
 			vscode.commands.registerCommand('umajin.generateWorkspace', this.generateWorkspace),
 			vscode.commands.registerCommand('umajin.applyAllCodeActions', this.applyAllCodeActions),
+			vscode.commands.registerCommand('umajin.autoformatAll', this.autoformatAll),
 			vscode.commands.registerCommand('umajin.stopLanguageClient', this.stopLanguageClient),
 			vscode.commands.registerCommand('umajin.startLanguageClient', this.startLanguageClient),
 			vscode.commands.registerCommand('umajin.statusLanguageClient', this.statusLanguageClient),
@@ -404,6 +405,34 @@ class UmajinExtension {
 				self._languageClient!.sendRequest('workspace/executeCommand',
 					{
 						'command': 'applyAllCodeActions',
+						'arguments':
+							[
+								{ 'openOnly': openOnly }
+							]
+					}
+				);
+			}
+			);
+	}
+
+	public autoformatAll() {
+		if (vscode.workspace.workspaceFolders === undefined) {
+			vscode.window.showErrorMessage('Autoformatting all Umajin files requires Umajin workspace to be open.');
+			return;
+		}
+
+		const self: UmajinExtension = umajin!;
+		if (!self._languageClient) {
+			vscode.window.showErrorMessage('Autoformatting all Umajin files requires Umajin language server to be connected.');
+			return;
+		}
+
+		vscode.window.showInformationMessage('Do you want to autoformat all files in the project or to open files only?', 'The whole project', 'Open files only')
+			.then(answer => {
+				const openOnly = (answer === 'Open files only');
+				self._languageClient!.sendRequest('workspace/executeCommand',
+					{
+						'command': 'autoformatAll',
 						'arguments':
 							[
 								{ 'openOnly': openOnly }

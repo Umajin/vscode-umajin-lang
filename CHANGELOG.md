@@ -14,6 +14,12 @@
 
 - Improved performance
 
+## [1.5.0] - 2023-08-17
+
+### Added
+
+- Massive project-wide autoformatting (use "Autoformat all Umajin files" command)
+
 ## [1.4.0] - 2023-08-11
 
 ### Added
