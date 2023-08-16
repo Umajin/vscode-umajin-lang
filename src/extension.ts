@@ -8,7 +8,6 @@ import * as debugprotocol from '@vscode/debugprotocol';
 import * as fs from 'fs';
 import * as langclient from 'vscode-languageclient/node';
 import * as net from 'net';
-import open from 'open';
 import * as path from 'path';
 import * as semver from 'semver';
 import * as vscode from 'vscode';
@@ -770,12 +769,15 @@ class UmajinExtension {
 					.replace(')', '');
 				fullPath += '#' + section;
 			}
-			if (useLocal) {
-				const command = isOSX ? 'open' : (isWindows ? 'start' : 'xdg-open');
-				child_process.exec(`${command} "${fullPath}"`);
-			} else {
-				open(fullPath);
-			}
+			const command = isOSX ? 'open' : (isWindows
+				? (`${process.env['SYSTEMROOT']}\\System32\\WindowsPowerShell\\v1.0\\powershell`
+					+ ' -NoProfile'
+					+ ' -NonInteractive'
+					+ ' -ExecutionPolicy'
+					+ ' Bypass'
+					+ ' start')
+				: 'xdg-open');
+			child_process.exec(`${command} "${fullPath}"`);
 
 		}
 	}
