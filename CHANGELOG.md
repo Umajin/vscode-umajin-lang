@@ -14,6 +14,12 @@
 
 - Improved performance
 
+## [1.6.0] - 2024-02-23
+
+### Fixed
+
+- Generated project file
+
 ## [1.5.0] - 2023-08-17
 
 ### Added
