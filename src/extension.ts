@@ -34,6 +34,12 @@ const isLinux: boolean = (process.platform === 'linux');
 const isOSX: boolean = (process.platform === 'darwin');
 const isWindows: boolean = (process.platform === 'win32');
 
+const nativeSuffix: string =
+	isLinux ? '.linux' :
+		(isOSX ? '.osx' :
+			(isWindows ? '.windows' :
+				''/* fallback to generic, should never happen */));
+
 const operatorSymbols: Record<string, string> = {
 	/* eslint-disable @typescript-eslint/naming-convention */
 	'-': 'minus',
@@ -306,6 +312,7 @@ class UmajinExtension {
 		this._readConfig();
 
 		if (event.affectsConfiguration('umajin.path.languageServer') ||
+			event.affectsConfiguration('umajin.path.languageServer' + nativeSuffix) ||
 			event.affectsConfiguration('umajin.advanced.languageServer')) {
 			this._restartLanguageClient();
 		}
@@ -586,15 +593,18 @@ class UmajinExtension {
 			vscode.workspace.getConfiguration().get('umajin.advanced.languageServer.arguments', this._languageServerArguments);
 
 		this._umajincFullPath = makeAbsolute(this._wsPath,
-			vscode.workspace.getConfiguration().get('umajin.path.compiler', this._umajincFullPath),
+			vscode.workspace.getConfiguration().get('umajin.path.compiler' + nativeSuffix,
+				vscode.workspace.getConfiguration().get('umajin.path.compiler', this._umajincFullPath)),
 			exeName('umajinc'));
 
 		this._umajinJitFullPath = makeAbsolute(this._wsPath,
-			vscode.workspace.getConfiguration().get('umajin.path.jitEngine', this._umajinJitFullPath),
+			vscode.workspace.getConfiguration().get('umajin.path.jitEngine' + nativeSuffix,
+				vscode.workspace.getConfiguration().get('umajin.path.jitEngine', this._umajinJitFullPath)),
 			appName('umajin'));
 
 		this._umajinlsFullPath = makeAbsolute(this._wsPath,
-			vscode.workspace.getConfiguration().get('umajin.path.languageServer', this._umajinlsFullPath),
+			vscode.workspace.getConfiguration().get('umajin.path.languageServer' + nativeSuffix,
+				vscode.workspace.getConfiguration().get('umajin.path.languageServer', this._umajinlsFullPath)),
 			exeName('umajinls'));
 
 		this._root = makeAbsolute(this._wsPath, '.',

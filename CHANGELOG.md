@@ -20,6 +20,8 @@
 
 - Support for Linux platform in parsing simulation
 
+- Platform-specific paths to binaries
+
 ### Fixed
 
 - Generated project file
