@@ -292,15 +292,17 @@
 						"win32",
 						"osx",
 						"ios",
-						"android"
+						"android",
+						"linux"
 					],
 					"description": "Platform simulation",
 					"enumDescriptions": [
-						"Parse files as if on native platform",
+						"Parse files as if on the native platform",
 						"Parse files as if on Windows",
 						"Parse files as if on OS X",
 						"Parse files as if on iOS",
-						"Parse files as if on Android"
+						"Parse files as if on Android",
+						"Parse files as if on Linux"
 					],
 					"scope": "window"
 				}

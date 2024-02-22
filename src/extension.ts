@@ -30,8 +30,9 @@ interface IAttachRequestArguments extends debugprotocol.DebugProtocol.AttachRequ
 }
 
 
-const isWindows: boolean = (process.platform === 'win32');
+const isLinux: boolean = (process.platform === 'linux');
 const isOSX: boolean = (process.platform === 'darwin');
+const isWindows: boolean = (process.platform === 'win32');
 
 const operatorSymbols: Record<string, string> = {
 	/* eslint-disable @typescript-eslint/naming-convention */
@@ -968,7 +969,13 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	protected override initializeRequest(response: debugprotocol.DebugProtocol.InitializeResponse, args: debugprotocol.DebugProtocol.InitializeRequestArguments): void {
 		const simulateCompiler: string = umajin!.getSimulateCompiler();
 		const simulatePlatform: string = umajin!.getSimulatePlatform();
-		const useJit: boolean = (simulateCompiler === 'JIT') && ((simulatePlatform === 'native') || (simulatePlatform === (isWindows ? 'win32' : (isOSX ? 'osx' : '<unknown>'))));
+		const useJit: boolean =
+			(simulateCompiler === 'JIT') &&
+			((simulatePlatform === 'native') ||
+				(simulatePlatform ===
+					(isWindows ? 'win32' :
+						(isOSX ? 'osx' :
+							(isLinux ? 'linux' : 'native')))));
 
 		const program: string = useJit ? umajin!.getUmajinJitFullPath() : umajin!.getUmajincFullPath();
 
@@ -1060,7 +1067,13 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		this._collapseLongMessages = umajin!.getCollapseLongMessages();
 		const simulateCompiler: string = umajin!.getSimulateCompiler();
 		const simulatePlatform: string = umajin!.getSimulatePlatform();
-		const useJit: boolean = (simulateCompiler === 'JIT') && ((simulatePlatform === 'native') || (simulatePlatform === (isWindows ? 'win32' : (isOSX ? 'osx' : '<unknown>'))));
+		const useJit: boolean =
+			(simulateCompiler === 'JIT') &&
+			((simulatePlatform === 'native') ||
+				(simulatePlatform ===
+					(isWindows ? 'win32' :
+						(isOSX ? 'osx' :
+							(isLinux ? 'linux' : 'native')))));
 
 		const program: string = useJit ? umajin!.getUmajinJitFullPath() : umajin!.getUmajincFullPath();
 
@@ -1136,6 +1149,10 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 
 				case 'android':
 					programArgs = programArgs.concat(['--target=aarch64-linux-android']);
+					break;
+
+				case 'linux':
+					programArgs = programArgs.concat(['--target=x86_64-unknown-linux-gnu']);
 					break;
 			}
 			programArgs = programArgs.concat(['--print-llvm-ir=none:']);

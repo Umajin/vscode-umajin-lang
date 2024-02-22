@@ -16,6 +16,10 @@
 
 ## [1.6.0] - 2024-02-23
 
+### Added
+
+- Support for Linux platform in parsing simulation
+
 ### Fixed
 
 - Generated project file
