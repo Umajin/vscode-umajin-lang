@@ -693,7 +693,7 @@
 	"scripts": {
 		"vscode:prepublish": "npm run vscode-prepublish-esbuild",
 		"vscode-prepublish-esbuild": "npm run esbuild-package -- --minify",
-		"esbuild-package": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
+		"esbuild-package": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
 		"esbuild": "npm run esbuild-base -- --sourcemap",
 		"esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
 		"vscode-prepublish-webpack": "npm run webpack-package",
