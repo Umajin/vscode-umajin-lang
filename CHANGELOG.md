@@ -14,6 +14,16 @@
 
 - Improved performance
 
+## [1.7.0] - 2024-07-24
+
+### Added
+
+- Command to restart the Language Client manually
+
+### Changed
+
+- Project file template now turns off `editor.minimap.showRegionSectionHeaders` setting.
+
 ## [1.6.0] - 2024-02-23
 
 ### Added

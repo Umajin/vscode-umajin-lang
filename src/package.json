@@ -76,6 +76,10 @@
 				"command": "umajin.startLanguageClient"
 			},
 			{
+				"title": "Restart Umajin Language Client",
+				"command": "umajin.restartLanguageClient"
+			},
+			{
 				"title": "Report the status of Umajin Language Client",
 				"command": "umajin.statusLanguageClient"
 			},

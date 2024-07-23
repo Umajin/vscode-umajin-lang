@@ -245,6 +245,7 @@ class UmajinExtension {
 			vscode.commands.registerCommand('umajin.autoformatAll', this.autoformatAll),
 			vscode.commands.registerCommand('umajin.stopLanguageClient', this.stopLanguageClient),
 			vscode.commands.registerCommand('umajin.startLanguageClient', this.startLanguageClient),
+			vscode.commands.registerCommand('umajin.restartLanguageClient', this.restartLanguageClient),
 			vscode.commands.registerCommand('umajin.statusLanguageClient', this.statusLanguageClient),
 			vscode.commands.registerCommand('umajin.openEngineHelp', this.openEngineHelp)
 		);
@@ -635,6 +636,12 @@ class UmajinExtension {
 		} else {
 			vscode.window.showErrorMessage('Cannot start Umajin Language Client: it was already running.');
 		}
+	}
+
+	public restartLanguageClient() {
+		const self: UmajinExtension = umajin!;
+		self.stopLanguageClient();
+		self.startLanguageClient();
 	}
 
 	public statusLanguageClient() {
