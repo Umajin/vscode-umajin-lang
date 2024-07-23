@@ -2,7 +2,9 @@
 
 import * as packageJson from './package.json';
 
+/* eslint-disable @typescript-eslint/naming-convention */
 import * as child_process from 'child_process';
+/* eslint-enable @typescript-eslint/naming-convention */
 import * as debugadapter from '@vscode/debugadapter';
 import * as debugprotocol from '@vscode/debugprotocol';
 import * as fs from 'fs';
