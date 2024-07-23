@@ -697,17 +697,20 @@
 	"scripts": {
 		"vscode:prepublish": "npm run vscode-prepublish-esbuild",
 		"vscode-prepublish-esbuild": "npm run esbuild-package -- --minify",
-		"esbuild-package": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
 		"esbuild": "npm run esbuild-base -- --sourcemap",
 		"esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+		"esbuild-package": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
 		"vscode-prepublish-webpack": "npm run webpack-package",
 		"webpack": "webpack --mode development",
-		"webpack-dev": "webpack --mode development --watch",
+		"webpack-watch": "webpack --mode development --watch",
 		"webpack-package": "webpack --mode production --devtool hidden-source-map",
 		"vscode-prepublish-vanilla": "npm run compile",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
-		"lint": "eslint src --ext ts"
+		"lint": "eslint src --ext ts",
+		"update": "sudo npm install -g @vscode/vsce && npm update --save && npm prune",
+		"build-local": "vsce package",
+		"build-publish": "vsce publish"
 	},
 	"engines": {
 		"vscode": "^1.81.0"
