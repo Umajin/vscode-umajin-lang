@@ -572,10 +572,12 @@ class UmajinExtension {
 	}
 
 	private _readPath(entryTail: string, defaultValue: string, filePart: string) {
-		return makeAbsolute(this._wsPath,
-			vscode.workspace.getConfiguration().get('umajin.path' + nativeSuffix + entryTail,
-				vscode.workspace.getConfiguration().get('umajin.path' + entryTail, defaultValue)),
-			filePart);
+		let path: string = vscode.workspace.getConfiguration().get('umajin.path' + nativeSuffix + entryTail, '');
+		if (path === '') {
+			path = vscode.workspace.getConfiguration().get('umajin.path' + entryTail, defaultValue);
+		}
+
+		return makeAbsolute(this._wsPath, path, filePart);
 	}
 
 	private _readConfig() {
@@ -1006,7 +1008,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 			};
 			const versionCheck: child_process.SpawnSyncReturns<string> = child_process.spawnSync(program, ['--version'], options);
 			if (!versionCheck.error && versionCheck.status === 0) {
-				const versionLines: string[] = versionCheck.stdout.split(/\r?\n/).filter((line) => line.startsWith("Version "));
+				const versionLines: string[] = (versionCheck.stdout + '\n' + versionCheck.stderr).split(/\r?\n/).filter((line) => line.startsWith("Version "));
 				if (versionLines.length === 1) {
 					const matched: RegExpMatchArray | null = versionLines[0]!.match(/^Version (\d+\.\d+\.\d+)\.\d+(?:-\S+)? "[^"]+" [0-9a-fA-F]+$/);
 					if (matched?.length === 2) {
@@ -1022,7 +1024,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 				};
 				const capabilitiesCheck: child_process.SpawnSyncReturns<string> = child_process.spawnSync(program, ['--debugging-capabilities'], options);
 				if (!capabilitiesCheck.error && capabilitiesCheck.status === 0) {
-					response.body = JSON.parse(capabilitiesCheck.stdout);
+					response.body = JSON.parse(capabilitiesCheck.stdout + '\n' + capabilitiesCheck.stderr);
 					response.body = response.body || {};
 					response.body.supportsTerminateRequest = true;
 					response.body.supportTerminateDebuggee = true;
