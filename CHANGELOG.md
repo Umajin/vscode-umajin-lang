@@ -14,11 +14,15 @@
 
 - Improved performance
 
-## [1.7.0] - 2024-07-24
+## [1.7.0] - 2024-08-21
 
 ### Added
 
 - Command to restart the Language Client manually
+
+### Fixed
+
+- Platform-specific paths to binaries in settings
 
 ### Changed
 

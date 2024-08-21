@@ -315,7 +315,7 @@ class UmajinExtension {
 		this._readConfig();
 
 		if (event.affectsConfiguration('umajin.path.languageServer') ||
-			event.affectsConfiguration('umajin.path.languageServer' + nativeSuffix) ||
+			event.affectsConfiguration('umajin.path' + nativeSuffix + '.languageServer') ||
 			event.affectsConfiguration('umajin.advanced.languageServer')) {
 			this._restartLanguageClient();
 		}
@@ -571,6 +571,13 @@ class UmajinExtension {
 		return prefix + input + postfix;
 	}
 
+	private _readPath(entryTail: string, defaultValue: string, filePart: string) {
+		return makeAbsolute(this._wsPath,
+			vscode.workspace.getConfiguration().get('umajin.path' + nativeSuffix + entryTail,
+				vscode.workspace.getConfiguration().get('umajin.path' + entryTail, defaultValue)),
+			filePart);
+	}
+
 	private _readConfig() {
 		this._wsPath = vscode.workspace.workspaceFolders![0]!.uri.fsPath;
 
@@ -595,20 +602,11 @@ class UmajinExtension {
 		this._languageServerArguments =
 			vscode.workspace.getConfiguration().get('umajin.advanced.languageServer.arguments', this._languageServerArguments);
 
-		this._umajincFullPath = makeAbsolute(this._wsPath,
-			vscode.workspace.getConfiguration().get('umajin.path.compiler' + nativeSuffix,
-				vscode.workspace.getConfiguration().get('umajin.path.compiler', this._umajincFullPath)),
-			exeName('umajinc'));
+		this._umajincFullPath = this._readPath('.compiler', this._umajincFullPath, exeName('umajinc'));
 
-		this._umajinJitFullPath = makeAbsolute(this._wsPath,
-			vscode.workspace.getConfiguration().get('umajin.path.jitEngine' + nativeSuffix,
-				vscode.workspace.getConfiguration().get('umajin.path.jitEngine', this._umajinJitFullPath)),
-			appName('umajin'));
+		this._umajinJitFullPath = this._readPath('.jitEngine', this._umajinJitFullPath, appName('umajin'));
 
-		this._umajinlsFullPath = makeAbsolute(this._wsPath,
-			vscode.workspace.getConfiguration().get('umajin.path.languageServer' + nativeSuffix,
-				vscode.workspace.getConfiguration().get('umajin.path.languageServer', this._umajinlsFullPath)),
-			exeName('umajinls'));
+		this._umajinlsFullPath = this._readPath('.languageServer', this._umajinlsFullPath, exeName('umajinls'));
 
 		this._root = makeAbsolute(this._wsPath, '.',
 			vscode.workspace.getConfiguration().get('umajin.root', this._root));

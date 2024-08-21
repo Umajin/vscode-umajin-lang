@@ -256,19 +256,19 @@
 					"description": "The default path to Umajin Compiler executable (relative to a workspace)",
 					"scope": "window"
 				},
-				"umajin.path.compiler.linux": {
+				"umajin.path.linux.compiler": {
 					"type": "string",
 					"default": "",
 					"description": "The path to Umajin Compiler executable on Linux (relative to a workspace)",
 					"scope": "window"
 				},
-				"umajin.path.compiler.osx": {
+				"umajin.path.osx.compiler": {
 					"type": "string",
 					"default": "",
 					"description": "The path to Umajin Compiler executable on OS X (relative to a workspace)",
 					"scope": "window"
 				},
-				"umajin.path.compiler.windows": {
+				"umajin.path.windows.compiler": {
 					"type": "string",
 					"default": "",
 					"description": "The path to Umajin Compiler executable on Windows (relative to a workspace)",
@@ -280,19 +280,19 @@
 					"description": "The default path to Umajin JIT engine executable (relative to a workspace)",
 					"scope": "window"
 				},
-				"umajin.path.jitEngine.linux": {
+				"umajin.path.linux.jitEngine": {
 					"type": "string",
 					"default": "",
 					"description": "The path to Umajin JIT engine executable on Linux (relative to a workspace)",
 					"scope": "window"
 				},
-				"umajin.path.jitEngine.osx": {
+				"umajin.path.osx.jitEngine": {
 					"type": "string",
 					"default": "",
 					"description": "The path to Umajin JIT engine executable on OS X (relative to a workspace)",
 					"scope": "window"
 				},
-				"umajin.path.jitEngine.windows": {
+				"umajin.path.windows.jitEngine": {
 					"type": "string",
 					"default": "",
 					"description": "The path to Umajin JIT engine executable on Windows (relative to a workspace)",
@@ -304,19 +304,19 @@
 					"description": "The default path to Umajin Language Server executable (relative to a workspace)",
 					"scope": "window"
 				},
-				"umajin.path.languageServer.linux": {
+				"umajin.path.linux.languageServer": {
 					"type": "string",
 					"default": "",
 					"description": "The path to Umajin Language Server executable on Linux (relative to a workspace)",
 					"scope": "window"
 				},
-				"umajin.path.languageServer.osx": {
+				"umajin.path.osx.languageServer": {
 					"type": "string",
 					"default": "",
 					"description": "The path to Umajin Language Server executable on OS X (relative to a workspace)",
 					"scope": "window"
 				},
-				"umajin.path.languageServer.windows": {
+				"umajin.path.windows.languageServer": {
 					"type": "string",
 					"default": "",
 					"description": "The path to Umajin Language Server executable on Windows (relative to a workspace)",
