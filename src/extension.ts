@@ -85,6 +85,15 @@ function makeAbsolute(basePart: string, pathPart: string, filePart: string): str
 }
 
 
+function jsonParse(str: string): any {
+	try {
+		return JSON.parse(str);
+	} catch {
+		return {};
+	}
+};
+
+
 class OutputHighlightingRule {
 	public match: string =
 		packageJson.contributes.configuration.properties['umajin.outputHighlighting'].items.properties.
@@ -378,7 +387,7 @@ class UmajinExtension {
 						});
 				}
 				if (write) {
-					fs.writeFileSync(cwFilename, (JSON.parse(
+					fs.writeFileSync(cwFilename, (jsonParse(
 						fs.readFileSync(
 							umajin!._context.asAbsolutePath('snippets/code-workspace.json'), 'utf-8'))
 					['Umajin VSCode Workspace'].body as string[]).join('\n')
@@ -1024,10 +1033,9 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 				};
 				const capabilitiesCheck: child_process.SpawnSyncReturns<string> = child_process.spawnSync(program, ['--debugging-capabilities'], options);
 				if (!capabilitiesCheck.error && capabilitiesCheck.status === 0) {
-					response.body = JSON.parse((!!capabilitiesCheck.stdout.length) ? capabilitiesCheck.stdout : capabilitiesCheck.stderr);
-					response.body = response.body || {};
-					response.body.supportsTerminateRequest = true;
-					response.body.supportTerminateDebuggee = true;
+					response.body = jsonParse((!!capabilitiesCheck.stdout.length) ? capabilitiesCheck.stdout : capabilitiesCheck.stderr);
+					response.body!.supportsTerminateRequest = true;
+					response.body!.supportTerminateDebuggee = true;
 					hasCapabilities = true;
 				}
 			}
@@ -1558,7 +1566,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	}
 
 	private _processDebugging(data: Buffer) {
-		const message: any = JSON.parse(data.toString('utf-8'));
+		const message: any = jsonParse(data.toString('utf-8'));
 		if (message.type === 'response') {
 			if (message.request_seq !== undefined) {
 				if (this._sentRequests[message.request_seq] !== undefined) {
