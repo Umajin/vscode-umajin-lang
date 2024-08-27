@@ -1024,7 +1024,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 				};
 				const capabilitiesCheck: child_process.SpawnSyncReturns<string> = child_process.spawnSync(program, ['--debugging-capabilities'], options);
 				if (!capabilitiesCheck.error && capabilitiesCheck.status === 0) {
-					response.body = JSON.parse(capabilitiesCheck.stdout + '\n' + capabilitiesCheck.stderr);
+					response.body = JSON.parse((!!capabilitiesCheck.stdout.length) ? capabilitiesCheck.stdout : capabilitiesCheck.stderr);
 					response.body = response.body || {};
 					response.body.supportsTerminateRequest = true;
 					response.body.supportTerminateDebuggee = true;

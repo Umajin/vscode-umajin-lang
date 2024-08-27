@@ -14,6 +14,12 @@
 
 - Improved performance
 
+## [1.7.3] - 2024-08-28
+
+### Fixed
+
+- Testing for debugger capabilities
+
 ## [1.7.2] - 2024-08-27
 
 ### Fixed
