@@ -36,8 +36,8 @@
 			"\t\t\t\t],",
 			"\t\t\t\t\"url\": \"./umajin_format.schema.json\"",
 			"\t\t\t}",
-			"\t\t\"umajin.root\" : \"$0\",",
-			"\t\t]",
+			"\t\t],",
+			"\t\t\"umajin.root\" : \"$0\"",
 			"\t}",
 			"}",
 			""

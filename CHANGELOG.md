@@ -14,6 +14,12 @@
 
 - Improved performance
 
+## [1.7.2] - 2024-08-27
+
+### Fixed
+
+- Project file template syntax
+
 ## [1.7.1] - 2024-08-21
 
 ### Fixed
