@@ -949,6 +949,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	private static readonly _reLogMessageIndexMessage: number = 8;
 
 	private _hasDebugger: boolean = false;
+	private _hasColoriseLog: boolean = false;
 
 	private _debugger: net.Socket | null = null;
 
@@ -971,6 +972,8 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	// It should _binary_ match the message printed by the JIT Engine
 	// eslint-disable-next-line @typescript-eslint/naming-convention
 	private static readonly _EIDPortMessage: string = "Embedded Intrusive Debugger port: ";
+
+	private static readonly _specialArgs: Set<string> = new Set<string>(['--log-output', '--log-level', '-L', '--log-format', '-F', '--script', '--colorise-log', '-C', '--target', '--print-llvm-ir', '-o', '--generate-debug-code', '-d']);
 
 
 	public constructor() {
@@ -1022,6 +1025,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 					const matched: RegExpMatchArray | null = versionLines[0]!.match(/^Version (\d+\.\d+\.\d+)\.\d+(?:-\S+)? "[^"]+" [0-9a-fA-F]+$/);
 					if (matched?.length === 2) {
 						this._hasDebugger = semver.gte(matched[1]!, '6.11.0'); // Levin
+						this._hasColoriseLog = semver.gte(matched[1]!, '6.14.0'); // Ohakune
 					}
 				}
 			}
@@ -1156,7 +1160,10 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 			rootFile = launchRequestArgs.overrideRootFile;
 		}
 
-		let programArgs: string[] = ['--log-output=stdout', `--log-level=${logLevel}`, `--log-format=${logFormat}`, `--script=${rootFile}`];
+		let programArgs: string[] = ['--log-output=stderr', `--log-level=${logLevel}`, `--log-format=${logFormat}`, `--script=${rootFile}`];
+		if (this._hasColoriseLog) {
+			programArgs = programArgs.concat(['--colorise-log=no']);
+		}
 		if (!useJit) {
 			switch (simulatePlatform) {
 				case 'native':
@@ -1190,8 +1197,37 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		} else {
 			this._debugger = null;
 		}
+
+
 		if (launchRequestArgs.arguments !== undefined) {
+			for (const arg of launchRequestArgs.arguments!) {
+				const match = arg.match(/^(-(?:(?:-[A-Za-z0-9_]+)+|[A-Za-z]))(?:=.*)?$/)
+				if (match !== null) {
+					const argKey = match[1]!;
+					if (UmajinDebugSession._specialArgs.has(argKey)) {
+						{
+							const event: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(
+								`Umajin arguments error: argument "${argKey}" cannot be used in launch configuration\n`,
+								'console');
+							uds.sendEvent(event);
+						}
+
+						uds.sendEvent(new debugadapter.TerminatedEvent());
+
+						this._child = null;
+
+						this.shutdown();
+
+						return;
+					}
+				}
+				if (arg === '--') {
+					break;
+				}
+			}
+
 			programArgs = programArgs.concat(launchRequestArgs.arguments);
+
 		}
 		{
 			const e: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(`Launching '${program} ${programArgs.join(' ')}'  ...\n`, 'console');
