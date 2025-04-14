@@ -274,28 +274,52 @@
 					"description": "The path to Umajin Compiler executable on Windows (relative to a workspace)",
 					"scope": "window"
 				},
+				"umajin.path.cliEngine": {
+					"type": "string",
+					"default": ".",
+					"description": "The default path to Umajin JIT CLI engine executable (relative to a workspace)",
+					"scope": "window"
+				},
+				"umajin.path.linux.cliEngine": {
+					"type": "string",
+					"default": "",
+					"description": "The path to Umajin JIT CLI engine executable on Linux (relative to a workspace)",
+					"scope": "window"
+				},
+				"umajin.path.osx.cliEngine": {
+					"type": "string",
+					"default": "",
+					"description": "The path to Umajin JIT CLI engine executable on OS X (relative to a workspace)",
+					"scope": "window"
+				},
+				"umajin.path.windows.cliEngine": {
+					"type": "string",
+					"default": "",
+					"description": "The path to Umajin JIT CLI engine executable on Windows (relative to a workspace)",
+					"scope": "window"
+				},
 				"umajin.path.jitEngine": {
 					"type": "string",
 					"default": ".",
-					"description": "The default path to Umajin JIT engine executable (relative to a workspace)",
+					"description": "The default path to Umajin JIT GUI engine executable (relative to a workspace)",
 					"scope": "window"
 				},
 				"umajin.path.linux.jitEngine": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin JIT engine executable on Linux (relative to a workspace)",
+					"description": "The path to Umajin JIT GUI engine executable on Linux (relative to a workspace)",
 					"scope": "window"
 				},
 				"umajin.path.osx.jitEngine": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin JIT engine executable on OS X (relative to a workspace)",
+					"description": "The path to Umajin JIT GUI engine executable on OS X (relative to a workspace)",
 					"scope": "window"
 				},
 				"umajin.path.windows.jitEngine": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin JIT engine executable on Windows (relative to a workspace)",
+					"description": "The path to Umajin JIT GUI engine executable on Windows (relative to a workspace)",
 					"scope": "window"
 				},
 				"umajin.path.languageServer": {
@@ -361,6 +385,20 @@
 						"Parse files as if on iOS",
 						"Parse files as if on Android",
 						"Parse files as if on Linux"
+					],
+					"scope": "window"
+				},
+				"umajin.ui": {
+					"type": "string",
+					"default": "GUI",
+					"enum": [
+						"GUI",
+						"CLI"
+					],
+					"description": "Interface",
+					"enumDescriptions": [
+						"Parse/launch with GUI",
+						"Parse/launch with CLI"
 					],
 					"scope": "window"
 				}
@@ -444,6 +482,20 @@
 								"type": "string",
 								"default": "",
 								"description": "The script file to launch",
+								"scope": "window"
+							},
+							"overrideUI": {
+								"type": "string",
+								"default": "",
+								"enum": [
+									"GUI",
+									"CLI"
+								],
+								"description": "Interface",
+								"enumDescriptions": [
+									"Launch with GUI",
+									"Launch with CLI"
+								],
 								"scope": "window"
 							}
 						}

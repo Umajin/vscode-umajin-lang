@@ -21,6 +21,7 @@ interface ILaunchRequestArguments extends debugprotocol.DebugProtocol.LaunchRequ
 	logFormatTimestamp?: 'milli' | 'milli_float' | 'micro' | 'world_clock';
 	logLevel?: 'critical' | 'error' | 'warning' | 'info' | 'debug' | 'verbose';
 	overrideRootFile?: string;
+	overrideUI?: string;
 }
 
 interface IAttachRequestArguments extends debugprotocol.DebugProtocol.AttachRequestArguments {
@@ -238,9 +239,11 @@ class UmajinExtension {
 	private _languageServerCommand: string = packageJson.contributes.configuration.properties['umajin.advanced.languageServer.command'].default;
 	private _languageServerArguments: string[] = packageJson.contributes.configuration.properties['umajin.advanced.languageServer.arguments'].default;
 	private _umajincFullPath: string = packageJson.contributes.configuration.properties['umajin.path.compiler'].default;
-	private _umajinJitFullPath: string = packageJson.contributes.configuration.properties['umajin.path.jitEngine'].default;
+	private _umajinCliFullPath: string = packageJson.contributes.configuration.properties['umajin.path.cliEngine'].default;
+	private _umajinGuiFullPath: string = packageJson.contributes.configuration.properties['umajin.path.jitEngine'].default;
 	private _umajinlsFullPath: string = packageJson.contributes.configuration.properties['umajin.path.languageServer'].default;
 	private _root: string = packageJson.contributes.configuration.properties['umajin.root'].default;
+	private _ui: string = packageJson.contributes.configuration.properties['umajin.ui'].default;
 	private _simulateCompiler: string = packageJson.contributes.configuration.properties['umajin.simulate.compiler'].default;
 	private _simulatePlatform: string = packageJson.contributes.configuration.properties['umajin.simulate.platform'].default;
 
@@ -303,12 +306,20 @@ class UmajinExtension {
 		return this._umajincFullPath;
 	}
 
-	public getUmajinJitFullPath(): string {
-		return this._umajinJitFullPath;
+	public getUmajinCliFullPath(): string {
+		return this._umajinCliFullPath;
+	}
+
+	public getUmajinGuiFullPath(): string {
+		return this._umajinGuiFullPath;
 	}
 
 	public getRoot(): string {
 		return this._root;
+	}
+
+	public getUI(): string {
+		return this._ui;
 	}
 
 	public getSimulateCompiler(): string {
@@ -337,26 +348,29 @@ class UmajinExtension {
 		}
 
 		const self: UmajinExtension = umajin!;
-		if (fs.existsSync(self._umajinJitFullPath)) {
-			const options: child_process.SpawnSyncOptions = {
-				cwd: self._wsPath
-			};
-			const result = child_process.spawnSync(self._umajinJitFullPath, ['--print-stdlib'], options);
-			if ((result.status !== 0) && (result.status !== 2)) /* old expected status code of --print-stdlib is 2 */ {
-				const message: string = 'An attempt to generate Umajin standard library using "' + self._umajinJitFullPath + '" failed with code ' + result.status;
-				vscode.window.showErrorMessage(message);
-				console.error(message);
-				if (result.error !== undefined) {
-					console.error('Error: ' + result.error);
+		for (const umajinJitFullPath of [self._umajinGuiFullPath, self._umajinCliFullPath]) {
+			if (fs.existsSync(umajinJitFullPath)) {
+				const options: child_process.SpawnSyncOptions = {
+					cwd: self._wsPath
+				};
+				const result = child_process.spawnSync(umajinJitFullPath, ['--print-stdlib'], options);
+				if ((result.status !== 0) && (result.status !== 2)) /* old expected status code of --print-stdlib is 2 */ {
+					const message: string = 'An attempt to generate Umajin standard library using "' + umajinJitFullPath + '" failed with code ' + result.status;
+					vscode.window.showErrorMessage(message);
+					console.error(message);
+					if (result.error !== undefined) {
+						console.error('Error: ' + result.error);
+					}
+					if (Buffer.byteLength(result.stdout) !== 0) {
+						console.error('Output: ' + result.stdout);
+					}
+					if (Buffer.byteLength(result.stderr) !== 0) {
+						console.error('Error stream: ' + result.stderr);
+					}
+				} else {
+					vscode.window.showInformationMessage('Umajin standard library generated.');
+					return;
 				}
-				if (Buffer.byteLength(result.stdout) !== 0) {
-					console.error('Output: ' + result.stdout);
-				}
-				if (Buffer.byteLength(result.stderr) !== 0) {
-					console.error('Error stream: ' + result.stderr);
-				}
-			} else {
-				vscode.window.showInformationMessage('Umajin standard library generated.');
 			}
 		}
 	}
@@ -615,12 +629,17 @@ class UmajinExtension {
 
 		this._umajincFullPath = this._readPath('.compiler', this._umajincFullPath, exeName('umajinc'));
 
-		this._umajinJitFullPath = this._readPath('.jitEngine', this._umajinJitFullPath, appName('umajin'));
+		this._umajinCliFullPath = this._readPath('.cliEngine', this._umajinCliFullPath, appName('umajin_cli'));
+
+		this._umajinGuiFullPath = this._readPath('.jitEngine', this._umajinGuiFullPath, appName('umajin'));
 
 		this._umajinlsFullPath = this._readPath('.languageServer', this._umajinlsFullPath, exeName('umajinls'));
 
 		this._root = makeAbsolute(this._wsPath, '.',
 			vscode.workspace.getConfiguration().get('umajin.root', this._root));
+
+		this._ui =
+			vscode.workspace.getConfiguration().get('umajin.ui', this._ui);
 
 		this._simulateCompiler =
 			vscode.workspace.getConfiguration().get('umajin.simulate.compiler', this._simulateCompiler);
@@ -998,6 +1017,8 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	}
 
 	protected override initializeRequest(response: debugprotocol.DebugProtocol.InitializeResponse, args: debugprotocol.DebugProtocol.InitializeRequestArguments): void {
+		const ui: string = umajin!.getUI();
+		const useGui: boolean = ui === "GUI";
 		const simulateCompiler: string = umajin!.getSimulateCompiler();
 		const simulatePlatform: string = umajin!.getSimulatePlatform();
 		const useJit: boolean =
@@ -1008,7 +1029,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 						(isOSX ? 'osx' :
 							(isLinux ? 'linux' : 'native')))));
 
-		const program: string = useJit ? umajin!.getUmajinJitFullPath() : umajin!.getUmajincFullPath();
+		const program: string = useJit ? (useGui ? umajin!.getUmajinGuiFullPath() : umajin!.getUmajinCliFullPath()) : umajin!.getUmajincFullPath();
 
 		let hasCapabilities: boolean = false;
 
@@ -1096,6 +1117,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		const uds: UmajinDebugSession = this;
 		this._wsPath = umajin!.getWsPath();
 		this._collapseLongMessages = umajin!.getCollapseLongMessages();
+		const ui: string = umajin!.getUI();
 		const simulateCompiler: string = umajin!.getSimulateCompiler();
 		const simulatePlatform: string = umajin!.getSimulatePlatform();
 		const useJit: boolean =
@@ -1106,7 +1128,12 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 						(isOSX ? 'osx' :
 							(isLinux ? 'linux' : 'native')))));
 
-		const program: string = useJit ? umajin!.getUmajinJitFullPath() : umajin!.getUmajincFullPath();
+		let useGui: boolean = ui === "GUI";
+		if (launchRequestArgs.overrideUI !== undefined) {
+			useGui = launchRequestArgs.overrideUI === "GUI";
+		}
+
+		const program: string = useJit ? (useGui ? umajin!.getUmajinGuiFullPath() : umajin!.getUmajinCliFullPath()) : umajin!.getUmajincFullPath();
 
 		let reLogMessageString: string = '^(([^:]+):(\\d+)(?::(\\d+))?.*)?\t([^\t]+\t(\\w+)\t(\\w+)';
 		//                                 12     2 3    3_   4    4_   1   5        6   6   7    7

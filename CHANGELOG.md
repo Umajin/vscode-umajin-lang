@@ -14,6 +14,12 @@
 
 - Improved performance
 
+## [1.8.0] - 2025-04-11
+
+### Added
+
+- CLI JIT Engine support
+
 ## [1.7.3] - 2024-08-28
 
 ### Fixed
