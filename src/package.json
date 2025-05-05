@@ -2,7 +2,7 @@
 	"name": "umajin-lang",
 	"displayName": "Umajin Language",
 	"description": "Provide Umajin language support for Visual Studio Code.",
-	"version": "1.8.0",
+	"version": "1.8.1",
 	"license": "MIT",
 	"publisher": "umajin-kuzmashapran",
 	"private": false,
@@ -765,10 +765,10 @@
 		"build-publish": "vsce publish"
 	},
 	"engines": {
-		"vscode": "1.99.1"
+		"vscode": "^1.99.1"
 	},
 	"dependencies": {
-		"@types/node": "^22.14.1",
+		"@types/node": "^22.15.4",
 		"@types/vscode": "^1.99.1",
 		"@vscode/debugadapter": "^1.68.0",
 		"@vscode/debugprotocol": "^1.68.0",
@@ -781,14 +781,14 @@
 	},
 	"devDependencies": {
 		"@types/semver": "^7.7.0",
-		"@typescript-eslint/eslint-plugin": "^8.29.1",
-		"@typescript-eslint/parser": "^8.29.1",
+		"@typescript-eslint/eslint-plugin": "^8.32.0",
+		"@typescript-eslint/parser": "^8.32.0",
 		"@vscode/vsce": "^3.3.2",
-		"esbuild": "^0.25.2",
-		"eslint": "^9.24.0",
+		"esbuild": "^0.25.3",
+		"eslint": "^9.26.0",
 		"ts-loader": "^9.5.2",
 		"typescript": "^5.8.3",
-		"webpack": "^5.99.5",
+		"webpack": "^5.99.7",
 		"webpack-cli": "^6.0.1"
 	}
 }

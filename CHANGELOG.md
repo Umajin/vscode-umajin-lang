@@ -14,6 +14,12 @@
 
 - Improved performance
 
+## [1.8.1] - 2025-05-06
+
+### Fixed
+
+- VSCode version compatibility
+
 ## [1.8.0] - 2025-04-11
 
 ### Added
