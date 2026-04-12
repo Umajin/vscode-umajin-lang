@@ -2,7 +2,7 @@
 	"name": "umajin-lang",
 	"displayName": "Umajin Language",
 	"description": "Provide Umajin language support for Visual Studio Code.",
-	"version": "1.8.1",
+	"version": "1.9.0",
 	"license": "MIT",
 	"publisher": "umajin-kuzmashapran",
 	"private": false,
@@ -88,6 +88,10 @@
 				"command": "umajin.openEngineHelp"
 			},
 			{
+				"title": "Install or update Umajin support",
+				"command": "umajin.updateEngine"
+			},
+			{
 				"title": "Run",
 				"command": "umajin.run",
 				"icon": "$(play)"
@@ -104,7 +108,7 @@
 				"umajin.advanced.languageServer.command": {
 					"type": "string",
 					"default": "",
-					"description": "Command to use instead of the Umajin Language Server specified by 'umajin.path.languageServer'.",
+					"markdownDescription": "Command to use instead of the Umajin Language Server specified by `#umajin.path.languageServer#`.",
 					"scope": "window"
 				},
 				"umajin.advanced.languageServer.arguments": {
@@ -259,19 +263,37 @@
 				"umajin.path.linux.compiler": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin Compiler executable on Linux (relative to a workspace)",
+					"markdownDescription": "The path to Umajin Compiler executable on any Linux (relative to a workspace). Falls back to `#umajin.path.compiler#`",
+					"scope": "window"
+				},
+				"umajin.path.linux.aarch64.compiler": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The path to Umajin Compiler executable on AArch64 Linux (relative to a workspace). Falls back to `#umajin.path.linux.compiler#`",
+					"scope": "window"
+				},
+				"umajin.path.linux.x86_64.compiler": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The path to Umajin Compiler executable on x86_64 Linux (relative to a workspace). Falls back to `#umajin.path.linux.compiler#`",
 					"scope": "window"
 				},
 				"umajin.path.osx.compiler": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin Compiler executable on OS X (relative to a workspace)",
+					"markdownDeprecationMessage": "Use `#umajin.path.mac.compiler#` instead",
+					"scope": "window"
+				},
+				"umajin.path.mac.compiler": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The path to Umajin Compiler executable on Mac (relative to a workspace). Falls back to `#umajin.path.compiler#`",
 					"scope": "window"
 				},
 				"umajin.path.windows.compiler": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin Compiler executable on Windows (relative to a workspace)",
+					"markdownDescription": "The path to Umajin Compiler executable on Windows (relative to a workspace). Falls back to `#umajin.path.compiler#`",
 					"scope": "window"
 				},
 				"umajin.path.cliEngine": {
@@ -283,19 +305,37 @@
 				"umajin.path.linux.cliEngine": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin JIT CLI engine executable on Linux (relative to a workspace)",
+					"markdownDescription": "The path to Umajin JIT CLI engine executable on any Linux (relative to a workspace). Falls back to `#umajin.path.cliEngine#`",
+					"scope": "window"
+				},
+				"umajin.path.linux.aarch64.cliEngine": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The path to Umajin JIT CLI engine executable on AArch64 Linux (relative to a workspace). Falls back to `#umajin.path.linux.cliEngine#`",
+					"scope": "window"
+				},
+				"umajin.path.linux.x86_64.cliEngine": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The path to Umajin JIT CLI engine executable on x86_64 Linux (relative to a workspace). Falls back to `#umajin.path.linux.cliEngine#`",
 					"scope": "window"
 				},
 				"umajin.path.osx.cliEngine": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin JIT CLI engine executable on OS X (relative to a workspace)",
+					"markdownDeprecationMessage": "Use `#umajin.path.mac.cliEngine#` instead",
+					"scope": "window"
+				},
+				"umajin.path.mac.cliEngine": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The path to Umajin JIT CLI engine executable on Mac (relative to a workspace). Falls back to `#umajin.path.cliEngine#`",
 					"scope": "window"
 				},
 				"umajin.path.windows.cliEngine": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin JIT CLI engine executable on Windows (relative to a workspace)",
+					"markdownDescription": "The path to Umajin JIT CLI engine executable on Windows (relative to a workspace). Falls back to `#umajin.path.cliEngine#`",
 					"scope": "window"
 				},
 				"umajin.path.jitEngine": {
@@ -307,19 +347,37 @@
 				"umajin.path.linux.jitEngine": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin JIT GUI engine executable on Linux (relative to a workspace)",
+					"markdownDescription": "The path to Umajin JIT GUI engine executable on any Linux (relative to a workspace). Falls back to `#umajin.path.jitEngine#`",
+					"scope": "window"
+				},
+				"umajin.path.linux.aarch64.jitEngine": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The path to Umajin JIT GUI engine executable on AArch64 Linux (relative to a workspace). Falls back to `#umajin.path.linux.jitEngine#`",
+					"scope": "window"
+				},
+				"umajin.path.linux.x86_64.jitEngine": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The path to Umajin JIT GUI engine executable on x86_64 Linux (relative to a workspace). Falls back to `#umajin.path.linux.jitEngine#`",
 					"scope": "window"
 				},
 				"umajin.path.osx.jitEngine": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin JIT GUI engine executable on OS X (relative to a workspace)",
+					"markdownDeprecationMessage": "Use `#umajin.path.mac.jitEngine#` instead",
+					"scope": "window"
+				},
+				"umajin.path.mac.jitEngine": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The path to Umajin JIT GUI engine executable on Mac (relative to a workspace). Falls back to `#umajin.path.jitEngine#`",
 					"scope": "window"
 				},
 				"umajin.path.windows.jitEngine": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin JIT GUI engine executable on Windows (relative to a workspace)",
+					"markdownDescription": "The path to Umajin JIT GUI engine executable on Windows (relative to a workspace). Falls back to `#umajin.path.jitEngine#`",
 					"scope": "window"
 				},
 				"umajin.path.languageServer": {
@@ -331,19 +389,37 @@
 				"umajin.path.linux.languageServer": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin Language Server executable on Linux (relative to a workspace)",
+					"markdownDescription": "The path to Umajin Language Server executable on any Linux (relative to a workspace). Falls back to `#umajin.path.languageServer#`",
+					"scope": "window"
+				},
+				"umajin.path.linux.aarch64.languageServer": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The path to Umajin Language Server executable on AArch64 Linux (relative to a workspace). Falls back to `#umajin.path.linux.languageServer#`",
+					"scope": "window"
+				},
+				"umajin.path.linux.x86_64.languageServer": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The path to Umajin Language Server executable on x86_64 Linux (relative to a workspace). Falls back to `#umajin.path.linux.languageServer#`",
 					"scope": "window"
 				},
 				"umajin.path.osx.languageServer": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin Language Server executable on OS X (relative to a workspace)",
+					"markdownDeprecationMessage": "Use `#umajin.path.mac.languageServer#` instead",
+					"scope": "window"
+				},
+				"umajin.path.mac.languageServer": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The path to Umajin Language Server executable on Mac (relative to a workspace). Falls back to `#umajin.path.languageServer#`",
 					"scope": "window"
 				},
 				"umajin.path.windows.languageServer": {
 					"type": "string",
 					"default": "",
-					"description": "The path to Umajin Language Server executable on Windows (relative to a workspace)",
+					"markdownDescription": "The path to Umajin Language Server executable on Windows (relative to a workspace). Falls back to `#umajin.path.languageServer#`",
 					"scope": "window"
 				},
 				"umajin.root": {
@@ -371,20 +447,24 @@
 					"default": "native",
 					"enum": [
 						"native",
-						"win32",
-						"osx",
+						"windows",
+						"mac-x86_64",
+						"mac-arm64",
 						"ios",
 						"android",
-						"linux"
+						"linux-x86_64",
+						"linux-aarch64"
 					],
 					"description": "Platform simulation",
 					"enumDescriptions": [
 						"Parse files as if on the native platform",
 						"Parse files as if on Windows",
-						"Parse files as if on OS X",
+						"Parse files as if on Mac (Intel CPU)",
+						"Parse files as if on Mac (Apple Silicon CPU)",
 						"Parse files as if on iOS",
 						"Parse files as if on Android",
-						"Parse files as if on Linux"
+						"Parse files as if on Linux x86_64",
+						"Parse files as if on Linux AArch64"
 					],
 					"scope": "window"
 				},
@@ -400,6 +480,39 @@
 						"Parse/launch with GUI",
 						"Parse/launch with CLI"
 					],
+					"scope": "window"
+				},
+				"umajin.update.channels": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"title": "Engine update distribution channel",
+						"properties": {
+							"title": {
+								"type": "string",
+								"description": "Channel title"
+							},
+							"url": {
+								"type": "string",
+								"description": "Channel URL"
+							}
+						}
+					},
+					"default": [
+						{
+							"title": "Release",
+							"url": "http://jenkins2.ur.local/view/Engine%20Release"
+						},
+						{
+							"title": "Experimental",
+							"url": "http://jenkins2.ur.local/view/Engine%20Labs"
+						},
+						{
+							"title": "Nightly",
+							"url": "http://jenkins2.ur.local/view/Engine%20Dev"
+						}
+					],
+					"description": "The Jenkins view URLs for the engine updates",
 					"scope": "window"
 				}
 			}
@@ -768,27 +881,31 @@
 		"vscode": "^1.99.1"
 	},
 	"dependencies": {
-		"@types/node": "^22.15.4",
-		"@types/vscode": "^1.99.1",
+		"@types/node": "^22.19.15",
+		"@types/vscode": "^1.110.0",
 		"@vscode/debugadapter": "^1.68.0",
 		"@vscode/debugprotocol": "^1.68.0",
 		"child_process": "^1.0.2",
 		"fs": "^0.0.1-security",
+		"http": "^0.0.1-security",
 		"net": "^1.0.2",
 		"path": "^0.12.7",
-		"semver": "^7.7.1",
+		"semver": "^7.7.4",
+		"unzipper": "^0.12.3",
 		"vscode-languageclient": "^9.0.1"
 	},
 	"devDependencies": {
-		"@types/semver": "^7.7.0",
-		"@typescript-eslint/eslint-plugin": "^8.32.0",
-		"@typescript-eslint/parser": "^8.32.0",
-		"@vscode/vsce": "^3.3.2",
-		"esbuild": "^0.25.3",
-		"eslint": "^9.26.0",
-		"ts-loader": "^9.5.2",
-		"typescript": "^5.8.3",
-		"webpack": "^5.99.7",
+		"@types/semver": "^7.7.1",
+		"@types/unzipper": "^0.10.11",
+		"@typescript-eslint/eslint-plugin": "^8.57.2",
+		"@typescript-eslint/parser": "^8.57.2",
+		"@vscode/vsce": "^3.7.1",
+		"esbuild": "^0.25.12",
+		"eslint": "^10.1.0",
+		"ts-loader": "^9.5.4",
+		"typescript": "^5.9.3",
+		"webpack": "^5.105.4",
 		"webpack-cli": "^6.0.1"
-	}
+	},
+	"http.proxySupport": "off"
 }

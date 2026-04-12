@@ -14,6 +14,34 @@
 
 - Improved performance
 
+## [1.9.0] - 2026-04-13
+
+### Added
+
+- Command:
+
+  - "Install or update Umajin support" that works by analysing and fixing the current setup and then downloads and unpacks job artifacts from the internal Umajin Jenkins server
+
+- Settings:
+
+  - `umajin.path.linux.aarch64.*` and `umajin.path.linux.x86_64.*` to support Linux subplatforms
+
+  - `umajin.update.channels` for flexible connection to the Jenkins server
+
+### Deprecated
+
+- Settings `umajin.path.osx.*` - use `umajin.path.mac.*` instead
+
+### Changed
+
+- Values in `umajin.simulate.platform` setting:
+
+  - `win32` -> `windows`
+
+  - `osx` -> `mac-x86_64` and `mac-arm64`
+
+  - `linux` -> `linux-x86_64` and `linux-aarch64`
+
 ## [1.8.1] - 2025-05-06
 
 ### Fixed

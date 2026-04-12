@@ -1,20 +1,33 @@
 'use strict';
 
-import * as packageJson from './package.json';
-
-/* eslint-disable @typescript-eslint/naming-convention */
-import * as child_process from 'child_process';
-/* eslint-enable @typescript-eslint/naming-convention */
-import * as debugadapter from '@vscode/debugadapter';
-import * as debugprotocol from '@vscode/debugprotocol';
+import * as childProcess from 'child_process';
 import * as fs from 'fs';
-import * as langclient from 'vscode-languageclient/node';
+import * as http from 'http';
 import * as net from 'net';
 import * as path from 'path';
+import * as process from 'process';
 import * as semver from 'semver';
+import * as unzipper from 'unzipper';
 import * as vscode from 'vscode';
 
-interface ILaunchRequestArguments extends debugprotocol.DebugProtocol.LaunchRequestArguments {
+import * as debugAdapter from '@vscode/debugadapter';
+import * as debugProtocol from '@vscode/debugprotocol';
+import * as languageClient from 'vscode-languageclient/node';
+
+import * as packageJson from './package.json';
+
+
+function reportFailure(message: string) {
+	console.error(message);
+	vscode.window.showErrorMessage(message);
+};
+
+function reportFailureAndReject(reject: (reason?: any) => void, message: string) {
+	reportFailure(message);
+	reject(message);
+};
+
+interface ILaunchRequestArguments extends debugProtocol.DebugProtocol.LaunchRequestArguments {
 	arguments?: string[];
 	logFormatEngineSourceInfo?: boolean,
 	logFormatThread?: boolean,
@@ -24,7 +37,7 @@ interface ILaunchRequestArguments extends debugprotocol.DebugProtocol.LaunchRequ
 	overrideUI?: string;
 }
 
-interface IAttachRequestArguments extends debugprotocol.DebugProtocol.AttachRequestArguments {
+interface IAttachRequestArguments extends debugProtocol.DebugProtocol.AttachRequestArguments {
 	logHost?: string;
 	logPort: number;
 	logStream: boolean;
@@ -32,16 +45,113 @@ interface IAttachRequestArguments extends debugprotocol.DebugProtocol.AttachRequ
 	debugPort: number;
 }
 
+// As `umajinls` understands them
+enum PlatformNameValue {
+	WindowsX64 = 'windows',
+	MacArm64 = 'mac-arm64',
+	LinuxX64 = 'linux-x86_64',
+	LinuxArm64 = 'linux-aarch64'
+};
 
-const isLinux: boolean = (process.platform === 'linux');
-const isOSX: boolean = (process.platform === 'darwin');
-const isWindows: boolean = (process.platform === 'win32');
+type PlatformName = PlatformNameValue.WindowsX64 | PlatformNameValue.MacArm64 | PlatformNameValue.LinuxX64 | PlatformNameValue.LinuxArm64;
 
-const nativeSuffix: string =
-	isLinux ? '.linux' :
-		(isOSX ? '.osx' :
-			(isWindows ? '.windows' :
-				''/* fallback to generic, should never happen */));
+class Platform {
+	public readonly isWindows: boolean;
+	public readonly isMac: boolean;
+	public readonly isLinux: boolean;
+
+	public readonly isX64: boolean;
+	public readonly isArm64: boolean;
+
+	public static readonly WindowsPlatformName: string = 'win32';
+	public static readonly MacPlatformName: string = 'darwin';
+	public static readonly LinuxPlatformName: string = 'linux';
+
+	public static readonly X64ArchitectureName: string = 'x64';
+	public static readonly Arm64ArchitectureName: string = 'arm64';
+
+	public readonly configGenericSuffix: string;
+
+	public readonly configSpecificSuffix: string;
+
+	public readonly nameForCompiler: PlatformName;
+
+	public readonly redirectionFolder: string;
+
+	public constructor(platformName: string, architectureName: string) {
+		this.isWindows = (platformName === Platform.WindowsPlatformName);
+		this.isMac = (platformName === Platform.MacPlatformName);
+		this.isLinux = (platformName === Platform.LinuxPlatformName);
+
+		this.isX64 = (architectureName === Platform.X64ArchitectureName);
+		this.isArm64 = (architectureName === Platform.Arm64ArchitectureName);
+
+		this.configGenericSuffix =
+			this.isWindows ?
+				'.windows' : (
+					this.isMac ?
+						'.mac' :
+					/* this.isLinux */ '.linux');
+
+		this.configSpecificSuffix =
+			this.isWindows ?
+				'.windows' : (
+					this.isMac ? '.mac' :
+					/* this.isLinux */ (this.isX64 ? '.linux.x86_64' : '.linux.aarch64'));
+
+		this.nameForCompiler =
+			this.isWindows ?
+				PlatformNameValue.WindowsX64 : (
+					this.isMac ? PlatformNameValue.MacArm64 :
+					/* this.isLinux */ (this.isX64 ? PlatformNameValue.LinuxX64 : PlatformNameValue.LinuxArm64));
+
+		this.redirectionFolder =
+			this.isWindows ?
+				'.' : (
+					this.isMac ? ('Darwin' + path.sep + 'arm64') :
+					/* this.isLinux */ ('Linux' + path.sep + (this.isX64 ? 'x86_64' : 'aarch64')));
+	}
+
+	public redirectedPath(filename: string): string {
+		return this.isWindows ? filename : path.resolve(path.dirname(filename) + path.sep + this.redirectionFolder + path.sep + path.basename(filename));
+	}
+
+	public binName(name: string): string {
+		return this.isWindows ?
+			(name + '.exe') :
+			name;
+	};
+
+	public appName(name: string): string {
+		return this.isMac ?
+			(name + '.app') :
+			this.binName(name);
+	};
+
+	public binInAppName(name: string): string {
+		return this.isMac ?
+			(this.appName(name) + '/Contents/MacOS/' + this.binName(name)) :
+			this.binName(name);
+	};
+
+	public open(): string {
+		return this.isWindows ?
+			(`${process.env['SYSTEMROOT']}\\System32\\WindowsPowerShell\\v1.0\\powershell`
+				+ ' -NoProfile'
+				+ ' -NonInteractive'
+				+ ' -ExecutionPolicy'
+				+ ' Bypass'
+				+ ' start') : (
+				this.isMac ?
+					'open' :
+					/* this.isLinux */ 'xdg-open'
+			);
+	}
+
+};
+
+const nativePlatform: Platform = new Platform(process.platform, process.arch);
+
 
 const operatorSymbols: Record<string, string> = {
 	/* eslint-disable @typescript-eslint/naming-convention */
@@ -62,21 +172,6 @@ const operatorSymbols: Record<string, string> = {
 	/* eslint-enable @typescript-eslint/naming-convention */
 };
 
-
-
-const exeName = isWindows ? function (name: string): string {
-	return name + '.exe';
-} : function (name: string): string {
-	return name;
-};
-
-const appName = isWindows ? function (name: string): string {
-	return name + '.exe';
-} : isOSX ? function (name: string): string {
-	return name + '.app/Contents/MacOS/' + name;
-} : function (name: string): string {
-	return name;
-};
 
 function makeAbsolute(basePart: string, pathPart: string, filePart: string): string {
 	if (!path.isAbsolute(pathPart)) {
@@ -174,6 +269,13 @@ function fillOutputHighlightingRuleDefaults(value: OutputHighlightingRule): void
 type OutputHighlightingRules = OutputHighlightingRule[];
 
 
+class Channel {
+	public title: string = '';
+	public url: string = '';
+};
+type Channels = Channel[];
+
+
 class Color {
 	public red: number = 0;
 	public green: number = 0;
@@ -183,7 +285,7 @@ class Color {
 
 	public constructor(hex?: string) {
 		if (hex) {
-			const match = hex.match(Color._reHexColor);
+			const match: RegExpMatchArray | null = hex.match(Color._reHexColor);
 			if (match === null) {
 				throw TypeError('Color is not a hex string');
 			}
@@ -210,7 +312,7 @@ class ColorMixer {
 	}
 
 	public mix(): Color {
-		let mixed: Color = new Color();
+		const mixed: Color = new Color();
 		this._colors.forEach((color: Color): void => {
 			mixed.red += color.red;
 			mixed.green += color.green;
@@ -222,11 +324,1730 @@ class ColorMixer {
 		mixed.blue /= amount;
 		return mixed;
 	}
-}
+};
+
+
+
+const platformRedirectorName: string = 'platform-redirector';
+const platformRedirectorContent: string = '"`dirname "$0"`/`uname -s`/`uname -m`/`basename "$0"`" "$@"\n';
+
+
+enum Binary {
+	GUI = 'umajin',
+	CLI = 'umajin_cli',
+	Compiler = 'umajinc',
+	LS = 'umajinls'
+};
+
+class EngineUpdateUIItem implements vscode.QuickPickItem {
+	readonly binary: Binary;
+	readonly label: string;
+	readonly kind: vscode.QuickPickItemKind = vscode.QuickPickItemKind.Default;
+	readonly description: string;
+	readonly detail: string;
+
+	public constructor(binary: Binary, label: string, description: string, detail: string) {
+		this.binary = binary;
+		this.label = label;
+		this.description = description;
+		this.detail = detail;
+	}
+};
+
+class EngineUpdatePlatformItem implements vscode.QuickPickItem {
+	readonly platformName: PlatformName;
+	readonly label: string;
+	readonly kind: vscode.QuickPickItemKind = vscode.QuickPickItemKind.Default;
+	readonly description: string;
+	readonly detail: string;
+
+	public constructor(platformName: PlatformName, label: string, description: string = '', detail: string = '') {
+		this.platformName = platformName;
+		this.label = label;
+		this.description = description;
+		this.detail = detail;
+	}
+};
+
+class EngineUpdateSimulationPlatformItem implements vscode.QuickPickItem {
+	readonly withSimCross: boolean;
+	readonly label: string;
+	readonly kind: vscode.QuickPickItemKind = vscode.QuickPickItemKind.Default;
+	readonly description: string;
+	readonly detail: string;
+
+	public constructor(withSimCross: boolean, label: string, description: string, detail: string) {
+		this.withSimCross = withSimCross;
+		this.label = label;
+		this.description = description;
+		this.detail = detail;
+	}
+};
+
+class EngineUpdateChannelItem implements vscode.QuickPickItem {
+	readonly channel: Channel;
+	readonly label: string;
+	readonly kind: vscode.QuickPickItemKind = vscode.QuickPickItemKind.Default;
+	readonly description: string;
+	readonly detail: string;
+
+	public constructor(channel: Channel, label: string, description: string = '', detail: string = '') {
+		this.channel = channel;
+		this.label = label;
+		this.description = description;
+		this.detail = detail;
+	}
+};
+
+class EngineUpdateJobsetItem implements vscode.QuickPickItem {
+	readonly jobDescription: string;
+	readonly label: string;
+	readonly kind: vscode.QuickPickItemKind = vscode.QuickPickItemKind.Default;
+	readonly description: string;
+	readonly detail: string;
+
+	public constructor(jobDescription: string, timestamp: number) {
+		this.jobDescription = jobDescription;
+		const match: RegExpMatchArray | null = this.jobDescription.match(/^\<pre\>([^<]*)\<br\/\>([^<]*)\<\/pre\>$/);
+		if (match) {
+			this.label = match[2]!;
+			this.detail = match[1]!;
+		}
+		else {
+			this.label = jobDescription;
+			this.detail = '';
+		}
+		this.description = new Date(timestamp).toLocaleString();
+	}
+};
+
+// As jenkins job are named
+enum JobPlatformNameValue {
+	WindowsX64 = 'win',
+	MacArm64 = 'mac-arm64',
+	LinuxX64 = 'linux-x86_64',
+	LinuxArm64 = 'linux-arm64'
+};
+
+class Artifact {
+	readonly URL: string;
+	readonly timestamp: number;
+
+	public constructor(URL: string, timestamp: number) {
+		this.URL = URL;
+		this.timestamp = timestamp;
+	}
+};
+
+enum FileInZipKind {
+	Regular,
+	Symlink,
+	Ignore,
+	Unsupported
+};
+
+type VSCodeProgress = vscode.Progress<{
+	message?: string;
+	increment?: number;
+}>;
+
+class Progress {
+	private _base: number = 0;
+	private _total: number = 1;
+	private _done: number = 0;
+	private _vscProgress: VSCodeProgress;
+	private _nextStep: () => void;
+	private _resolve: (value: void | PromiseLike<void>) => void;
+
+	public constructor(vscProgress: VSCodeProgress, nextStep: () => void, resolve: (value: void | PromiseLike<void>) => void) {
+		this._vscProgress = vscProgress;
+		this._nextStep = nextStep;
+		this._resolve = resolve;
+
+		this._vscProgress.report({ increment: 0 });
+	}
+
+	private _updateProgress() {
+		this._vscProgress.report({ increment: this._base + (100 - this._base) * this._done / this._total });
+	}
+
+	public setBase(base: number) {
+		this._base = base;
+		this._updateProgress();
+	}
+
+	public setTotal(total: number) {
+		this._total = total;
+		this._updateProgress();
+	}
+
+	public addPart() {
+		this._total++;
+		this._updateProgress();
+	}
+
+	public partFinished() {
+		this._done++;
+		this._updateProgress();
+
+		if (this._done === this._total) {
+			this._resolve();
+			this._nextStep();
+		}
+	}
+};
+
+class EngineUpdateContext {
+	private _ext: UmajinExtension;
+
+	private static readonly platforms = new Map<PlatformName, Platform>([
+		[PlatformNameValue.WindowsX64, /**/ new Platform(Platform.WindowsPlatformName, /**/Platform.X64ArchitectureName)],
+		[PlatformNameValue.MacArm64, /*  */ new Platform(Platform.MacPlatformName, /*    */Platform.Arm64ArchitectureName)],
+		[PlatformNameValue.LinuxX64, /*  */ new Platform(Platform.LinuxPlatformName, /*  */Platform.X64ArchitectureName)],
+		[PlatformNameValue.LinuxArm64, /**/ new Platform(Platform.LinuxPlatformName, /*  */Platform.Arm64ArchitectureName)]
+	]);
+
+	private static readonly jobNameMapper = new Map<string, PlatformName>([
+		[JobPlatformNameValue.WindowsX64, /**/ PlatformNameValue.WindowsX64],
+		[JobPlatformNameValue.MacArm64, /*  */ PlatformNameValue.MacArm64],
+		[JobPlatformNameValue.LinuxX64, /*  */ PlatformNameValue.LinuxX64],
+		[JobPlatformNameValue.LinuxArm64, /**/ PlatformNameValue.LinuxArm64]
+	]);
+
+	private static readonly allBinaries = new Set<Binary>([
+		Binary.GUI,
+		Binary.CLI,
+		Binary.Compiler,
+		Binary.LS
+	]);
+
+	private _redirectedBinaries = new Set<string>();
+
+	// Not tracking the presence of the platform redirector.
+	// The original idea was: if a redirector is present: keep it.
+	// The current idea is: wipe old, install new, if only 1 *nix platform: no redirector is needed.
+	// private _hasPlatformRedirector = false;
+
+	private _needPlatformRedirector = false;
+
+	private _presentBinaries = new Map<PlatformName, Map<Binary, string>>();
+
+	private static readonly knownAssociatedFiles = new Set<string>([
+		'stdlib.u', // always delete it - by the end it will be either regenerated or absent, but not outdated!
+		'd3dcompiler_47.dll',
+		'libcrypto-1_1-x64.dll',
+		'libssl-1_1-x64.dll',
+		'llc.exe',
+		'Microsoft.Web.WebView2.Core.dll',
+		'Microsoft.Web.WebView2.Core.winmd',
+		'Microsoft.WindowsAppRuntime.Bootstrap.dll',
+		'openh264-2.5.1-win64.dll',
+		'rlottie.dll',
+		'umajin_cli.pdb',
+		'umajin.pdb',
+		'umajinc.pdb',
+		'umajinls.pdb'
+	]);
+
+	private _presentAssociatedFiles = new Set<string>();
+
+	private _detectedUIs = new Set<Binary>();
+	private _detectedPlatforms = new Set<PlatformName>();
+
+	private _selectedUIs = new Set<Binary>();
+	private _selectedDevPlatforms = new Set<PlatformName>();
+	private _withSimCross: boolean = false;
+	private _selectedRunPlatforms = new Set<PlatformName>();
+	private _selectedChannel: Channel | undefined = undefined;
+	private _selectedJobset: EngineUpdateJobsetItem | undefined = undefined;
+
+	private _URLs = new Map<Binary, Map<PlatformName, string>>();
+	private _zips = new Map<string, Map<Binary, Map<PlatformName, Artifact>>>();
+
+	private _needRedirection = new Set<Binary>();
+
+	public constructor(ext: UmajinExtension) {
+		this._ext = ext;
+		EngineUpdateContext.platforms.forEach((_value, key) => {
+			this._presentBinaries.set(key, new Map<Binary, string>());
+		});
+
+		this._scanLocalfiles();
+	}
+
+	private _cacheFolder(): string {
+		return this._ext.getWsPath() + path.sep + '.vscode' + path.sep + '.umajin-engine-update-cache';
+	}
+
+	private _scanLocalfiles() {
+		vscode.window.withProgress<void>({
+			location: vscode.ProgressLocation.Notification,
+			title: 'Engine update: Scanning local files',
+			cancellable: true
+		}, (vscProgress, token) => {
+			token.onCancellationRequested(() => {
+				console.log("Engine update cancelled - User cancelled scanning local files");
+			});
+
+			return new Promise<void>((resolve, reject) => {
+				const progress = new Progress(vscProgress, () => { this._checkInside(); }, resolve);
+
+				fs.readdir(this._ext.getWsPath(), { withFileTypes: true }, (errno, files: fs.Dirent[]) => {
+					if (errno !== null) {
+						reportFailureAndReject(reject, `Cannot read folder "${this._ext.getWsPath()}": ` + errno);
+					} else {
+						progress.setBase(25);
+						files.forEach((dirent) => {
+							/* console.log('parentPath: "' + dirent.parentPath +
+								'" name: "' + dirent.name +
+								'" isFile: ' + dirent.isFile() +
+								' isDirectory: ' + dirent.isDirectory() +
+								' isBlockDevice: ' + dirent.isBlockDevice() +
+								' isCharacterDevice: ' + dirent.isCharacterDevice() +
+								' isSymbolicLink: ' + dirent.isSymbolicLink() +
+								' isFIFO: ' + dirent.isFIFO() +
+								' isSocket: ' + dirent.isSocket()); */
+							if (dirent.isSymbolicLink()) {
+								progress.addPart();
+								const filename: string = dirent.parentPath + path.sep + dirent.name;
+								fs.readlink(filename, (errno, linkString: string) => {
+									if (errno !== null) {
+										console.error(`Cannot read link "${filename}": `, errno);
+									} else {
+										if (linkString === platformRedirectorName) {
+											console.log(`"${dirent.name}" is redirected`);
+											this._redirectedBinaries.add(filename);
+											// this._hasPlatformRedirector = true;
+										}
+										progress.partFinished();
+									}
+								});
+								// } else if (dirent.isFile()) {
+								// 	if (dirent.name === platformRedirectorName) {
+								// 		console.log('Found "platform-redirector"');
+								// 		this._hasPlatformRedirector = true;
+								// 	}
+							}
+						});
+						progress.partFinished(); // the initial presumed part, as we never set the total, only increased it
+					}
+				});
+			});
+		});
+	}
+
+	// check that all binaries are inside the workspace
+	private _checkInside() {
+		let outside: string = '';
+		const wsPath: string = this._ext.getWsPath()
+
+		EngineUpdateContext.allBinaries.forEach((binaryValue) => {
+			const platforms = new Set<PlatformName>();
+			EngineUpdateContext.platforms.forEach((platformValue, platformKey) => {
+				if (!this._ext.getBundlePath(platformValue, binaryValue).startsWith(wsPath)) {
+					platforms.add(platformKey);
+				}
+			});
+			if (platforms.size !== 0) {
+				outside += ' '.repeat(60) + '\n  • Umajin ';
+				switch (binaryValue) {
+					case Binary.GUI:
+						outside += 'GUI JIT engine:';
+						break;
+
+					case Binary.CLI:
+						outside += 'CLI JIT engine:';
+						break;
+
+					case Binary.Compiler:
+						outside += 'compiler:';
+						break;
+
+					case Binary.LS:
+						outside += 'language server:';
+						break;
+				}
+				if (platforms.size === EngineUpdateContext.platforms.size) {
+					outside += ' All platforms';
+				} else {
+					platforms.forEach((platformKey) => {
+						outside += ' '.repeat(60) + '\n    • ';
+						switch (platformKey) {
+							case PlatformNameValue.WindowsX64:
+								outside += 'Windows';
+								break;
+
+							case PlatformNameValue.MacArm64:
+								outside += 'Mac (Apple Silicon)';
+								break;
+
+							case PlatformNameValue.LinuxX64:
+								outside += 'Linux (x86_64)';
+								break;
+
+							case PlatformNameValue.LinuxArm64:
+								outside += 'Linux (aarch64)';
+								break;
+						}
+					});
+				}
+			}
+		});
+
+		if (outside.length === 0) {
+			this._locateOld();
+		} else {
+			reportFailure('Cannot automatically update Umajin engine, because the following binaries are outside the workspace:' + outside);
+		}
+	}
+
+	private _locateOld() {
+		vscode.window.withProgress<void>({
+			location: vscode.ProgressLocation.Notification,
+			title: 'Engine update: Looking for the old installation',
+			cancellable: true
+		}, (vscProgress, token) => {
+			token.onCancellationRequested(() => {
+				console.log("Engine update cancelled - User cancelled looking for the old installation");
+			});
+
+			return new Promise<void>((resolve, _reject) => {
+				const progress = new Progress(vscProgress, () => { this._selectUIs(); }, resolve);
+
+				const associatedFiles = new Set<string>();
+
+				const windowsPlatform: Platform = EngineUpdateContext.platforms.get(PlatformNameValue.WindowsX64)!;
+
+				EngineUpdateContext.knownAssociatedFiles.forEach((associatedFile) => {
+					EngineUpdateContext.allBinaries.forEach((binaryValue) => {
+						associatedFiles.add(this._ext.getFilePath(windowsPlatform, binaryValue, associatedFile));
+					});
+				});
+
+				const markBinaryPresent = (platformName: PlatformName, binary: Binary, filename: string) => {
+					const binaryMap: Map<Binary, string> = this._presentBinaries.get(platformName)!;
+					binaryMap.set(binary, filename);
+					this._presentBinaries.set(platformName, binaryMap);
+				}
+
+				const markArtifactPresent = (filename: string) => {
+					this._presentAssociatedFiles.add(filename);
+				}
+
+				progress.setTotal(
+					// all binaries
+					EngineUpdateContext.platforms.size * EngineUpdateContext.allBinaries.size
+					// redirected stdlib.u-s
+					+ EngineUpdateContext.platforms.size - 1 /* windows */
+					// associated files
+					+ associatedFiles.size);
+
+				EngineUpdateContext.platforms.forEach((platformValue, platformKey) => {
+					EngineUpdateContext.allBinaries.forEach((binaryValue) => {
+						/* windows?
+						 *  |n  |y
+						 *  |   v
+						 *  |  found?
+						 *  |   |n |y
+						 *  |   |  \-> mark present & set complete (normal setup)
+						 *  |   |
+						 *  |   \-> set complete (normal setup, platform absent)
+						 *  v
+						 * found?
+						 *  |y  |n
+						 *  |   v
+						 *  |  look for redirected. found?
+						 *  |   |n  |y
+						 *  |   |   \-> mark present & set complete (no link, redirected setup is broken, but found the binary)
+						 *  |   |
+						 *  |   \-> set complete (platform absent, redirector is absent or broken)
+						 *  v
+						 * is a symlink?
+						 *  |y  |n
+						 *  |   \-> mark present & set complete (normal direct setup, no redirector)
+						 *  v
+						 * can read symlink?
+						 *  |y  |n
+						 *  |   \-> mark present & set complete (something is broken - symlink cannot be read, something else might fail later)
+						 *  v
+						 * points to `platform-redirector`?
+						 *  |y  |n
+						 *  |   \-> mark present & set complete (custom setup - not sure how it will clash with the platform-redirector)
+						 *  v
+						 * look for redirected. found?
+						 *  |n  |y
+						 *  |   \-> mark present & set complete (correct redirected setup)
+						 *  |
+						 *  \-> set complete (redirector is present, but no binary for this platform)
+						 */
+						let filename: string = this._ext.getBundlePath(platformValue, binaryValue);
+						if (platformKey === PlatformNameValue.WindowsX64) {
+							console.log(`Looking for binary "${filename}"`);
+							fs.lstat(filename, (errno) => {
+								if (errno === null) {
+									// windows? y:
+									// found? y:
+									//   mark present & set complete (normal setup)
+									markBinaryPresent(platformKey, binaryValue, filename);
+								}
+								// windows? y:
+								// found? n:
+								//   set complete (normal setup, platform absent)
+								progress.partFinished();
+							});
+						}
+						else {
+							console.log(`Looking for binary "${filename}"`);
+							fs.lstat(filename, (errno, stats) => {
+								if (errno === null) {
+									if (stats.isSymbolicLink()) {
+										fs.readlink(filename, (errno, linkString: string) => {
+											if (errno === null) {
+												if (linkString === platformRedirectorName) {
+													filename = platformValue.redirectedPath(filename);
+													console.log(`Looking for binary "${filename}"`);
+													fs.lstat(filename, (errno) => {
+														if (errno === null) {
+															// windows? n:
+															// found? y:
+															// is a symlink? y:
+															// can read symlink? y:
+															// points to `platform-redirector`? y:
+															// look for redirected. found? y:
+															//   mark present & set complete (correct redirected setup)
+															markBinaryPresent(platformKey, binaryValue, filename);
+														}
+														// windows? n:
+														// found? y:
+														// is a symlink? y:
+														// can read symlink? y:
+														// points to `platform-redirector`? y:
+														// look for redirected. found? n:
+														//   set complete (redirector is present, but no binary for this platform)
+														progress.partFinished();
+													});
+												} else {
+													// windows? n:
+													// found? y:
+													// is a symlink? y:
+													// can read symlink? y:
+													// points to `platform-redirector`? n:
+													//   mark present & set complete (custom setup - not sure how it will clash with the platform-redirector)
+													markBinaryPresent(platformKey, binaryValue, filename);
+													progress.partFinished();
+												}
+											} else {
+												// windows? n:
+												// found? y:
+												// is a symlink? y:
+												// can read symlink? n:
+												//   mark present & set complete (something is broken - symlink cannot be read, something else might fail later)
+												markBinaryPresent(platformKey, binaryValue, filename);
+												progress.partFinished();
+											}
+										});
+									} else {
+										// windows? n:
+										// found? y:
+										// is a symlink? n:
+										//   mark present & set complete (normal direct setup, no redirector)
+										markBinaryPresent(platformKey, binaryValue, filename);
+										progress.partFinished();
+									}
+								} else {
+									filename = platformValue.redirectedPath(filename);
+									console.log(`Looking for binary "${filename}"`);
+									fs.lstat(filename, (errno) => {
+										if (errno === null) {
+											// windows? n:
+											// found? n:
+											// look for redirected. found? y:
+											//   mark present & set complete (no link, redirected setup is broken, but found the binary)
+											markBinaryPresent(platformKey, binaryValue, filename);
+										}
+										// windows? n:
+										// found? n:
+										// look for redirected. found? n:
+										//   set complete (platform absent, redirector is absent or broken)
+										progress.partFinished();
+									});
+								}
+							});
+						}
+					});
+
+					if (platformKey !== PlatformNameValue.WindowsX64) {
+						const filename: string = platformValue.redirectedPath(this._ext.getWsPath() + path.sep + 'stdlib.u');
+						console.log(`Looking for symlink "${filename}"`);
+						fs.lstat(filename, (errno) => {
+							if (errno === null) {
+								markArtifactPresent(filename);
+							}
+							progress.partFinished();
+						});
+					}
+				});
+
+				associatedFiles.forEach((filename) => {
+					console.log(`Looking for an associated file "${filename}"`);
+					fs.stat(filename, (errno) => {
+						if (errno === null) {
+							markArtifactPresent(filename);
+						}
+						progress.partFinished();
+					});
+				});
+			});
+		});
+	}
+
+	private _selectUIs() {
+		// print results from the previous step:
+		this._presentBinaries.forEach((binaryMap, platformKey) => {
+			binaryMap.forEach((filename, binaryKey) => {
+				console.log(`Found binary ${platformKey} ${binaryKey}: "${filename}"`);
+				this._detectedUIs.add(binaryKey);
+				this._detectedPlatforms.add(platformKey);
+			});
+		});
+		this._presentAssociatedFiles.forEach((filename) => {
+			console.log(`Found an associated file "${filename}"`);
+		});
+
+
+		const guiItem: EngineUpdateUIItem = new EngineUpdateUIItem(Binary.GUI, 'GUI', '-- Graphical User Interface', '(with a window)');
+		const cliItem: EngineUpdateUIItem = new EngineUpdateUIItem(Binary.CLI, 'CLI', '-- Command Line Interface', '(without a window)');
+
+		const selectedItems: EngineUpdateUIItem[] = [];
+		if (this._detectedUIs.has(Binary.GUI)) {
+			selectedItems.push(guiItem);
+		}
+		if (this._detectedUIs.has(Binary.CLI)) {
+			selectedItems.push(cliItem);
+		}
+
+		const uiSelector: vscode.QuickPick<EngineUpdateUIItem> = vscode.window.createQuickPick<EngineUpdateUIItem>();
+		uiSelector.title = 'Installing Umajin Engine'
+		uiSelector.step = 1;
+		uiSelector.totalSteps = 6;
+		uiSelector.prompt = 'Choose at least one interface to install';
+		uiSelector.placeholder = 'filter';
+		uiSelector.matchOnDescription = true;
+		uiSelector.matchOnDetail = true;
+		uiSelector.canSelectMany = true;
+		uiSelector.items = [guiItem, cliItem];
+		uiSelector.selectedItems = selectedItems;
+		uiSelector.onDidAccept(() => {
+			uiSelector.selectedItems.forEach((item) => {
+				this._selectedUIs.add(item.binary);
+			});
+			uiSelector.dispose();
+
+			if (this._selectedUIs.size === 0) {
+				vscode.window.showWarningMessage('At least one UI has to be selected. Would you like to try again?', 'Try again', 'Cancel the update').then((value) => {
+					if (value === 'Try again') {
+						this._selectUIs();
+					}
+				});
+			}
+			else {
+				this._selectDevPlatforms();
+			}
+		});
+		uiSelector.onDidHide(() => {
+			uiSelector.dispose();
+		});
+		uiSelector.show();
+	}
+
+	private _selectDevPlatforms() {
+		const windowsItem: EngineUpdatePlatformItem = new EngineUpdatePlatformItem(PlatformNameValue.WindowsX64, 'Windows - x86_64', '(Intel/AMD CPUs)', 'x64');
+		const macArm64Item: EngineUpdatePlatformItem = new EngineUpdatePlatformItem(PlatformNameValue.MacArm64, 'Mac - arm64', '(Apple Silicon)', 'arm64');
+		const linuxX64Item: EngineUpdatePlatformItem = new EngineUpdatePlatformItem(PlatformNameValue.LinuxX64, 'Linux - x86_64', '(Intel/AMD CPUs)', 'x64');
+		const linuxArm64Item: EngineUpdatePlatformItem = new EngineUpdatePlatformItem(PlatformNameValue.LinuxArm64, 'Linux - aarch64', '(NVIDIA Jetson Orin, Raspberry Pi)', 'arm64');
+
+		const selectedItems: EngineUpdatePlatformItem[] = [];
+		if (this._detectedPlatforms.has(PlatformNameValue.WindowsX64)) {
+			selectedItems.push(windowsItem);
+		}
+		if (this._detectedPlatforms.has(PlatformNameValue.MacArm64)) {
+			selectedItems.push(macArm64Item);
+		}
+		if (this._detectedPlatforms.has(PlatformNameValue.LinuxX64)) {
+			selectedItems.push(linuxX64Item);
+		}
+		if (this._detectedPlatforms.has(PlatformNameValue.LinuxArm64)) {
+			selectedItems.push(linuxArm64Item);
+		}
+
+		const devPlatformSelector: vscode.QuickPick<EngineUpdatePlatformItem> = vscode.window.createQuickPick<EngineUpdatePlatformItem>();
+		devPlatformSelector.title = 'Installing Umajin Engine'
+		devPlatformSelector.step = 2;
+		devPlatformSelector.totalSteps = 6;
+		devPlatformSelector.prompt = 'Choose at least one platform for development';
+		devPlatformSelector.placeholder = 'filter';
+		devPlatformSelector.matchOnDescription = true;
+		devPlatformSelector.matchOnDetail = true;
+		devPlatformSelector.canSelectMany = true;
+		devPlatformSelector.items = [windowsItem, macArm64Item, linuxX64Item, linuxArm64Item];
+		devPlatformSelector.selectedItems = selectedItems;
+		devPlatformSelector.onDidAccept(() => {
+			devPlatformSelector.selectedItems.forEach((item) => {
+				this._selectedDevPlatforms.add(item.platformName);
+			});
+			devPlatformSelector.dispose();
+
+			if (this._selectedDevPlatforms.size === 0) {
+				vscode.window.showWarningMessage('At least one development platform has to be selected. Would you like to try again?', 'Try again', 'Cancel the update').then((value) => {
+					if (value === 'Try again') {
+						this._selectDevPlatforms();
+					}
+				});
+			}
+			else {
+				this._selectSimPlatforms();
+			}
+		});
+		devPlatformSelector.onDidHide(() => {
+			devPlatformSelector.dispose();
+		});
+		devPlatformSelector.show();
+	}
+
+	private _selectSimPlatforms() {
+		const nativeOnlyItem: EngineUpdateSimulationPlatformItem = new EngineUpdateSimulationPlatformItem(false, 'Native only', '', '');
+		const crossSimItem: EngineUpdateSimulationPlatformItem = new EngineUpdateSimulationPlatformItem(true, 'Cross-platform', '', 'Compilation simulation via umajinc');
+
+		const simPlatformSelector: vscode.QuickPick<EngineUpdateSimulationPlatformItem> = vscode.window.createQuickPick<EngineUpdateSimulationPlatformItem>();
+		simPlatformSelector.title = 'Installing Umajin Engine'
+		simPlatformSelector.step = 3;
+		simPlatformSelector.totalSteps = 6;
+		simPlatformSelector.prompt = 'Select compilation simulation support';
+		simPlatformSelector.placeholder = 'filter';
+		simPlatformSelector.matchOnDescription = true;
+		simPlatformSelector.matchOnDetail = true;
+		simPlatformSelector.items = [nativeOnlyItem, crossSimItem];
+		simPlatformSelector.activeItems = [this._detectedUIs.has(Binary.Compiler) ? crossSimItem : nativeOnlyItem];
+		simPlatformSelector.onDidAccept(() => {
+			simPlatformSelector.selectedItems.forEach((item) => {
+				this._withSimCross = item.withSimCross;
+			});
+			simPlatformSelector.dispose();
+
+			this._selectRunPlatforms();
+		});
+		simPlatformSelector.onDidHide(() => {
+			simPlatformSelector.dispose();
+		});
+		simPlatformSelector.show();
+	}
+
+	private _selectRunPlatforms() {
+		if (this._selectedDevPlatforms.size === EngineUpdateContext.platforms.size) {
+			this._selectChannel();
+		} else {
+			const allItems = new Map<PlatformName, EngineUpdatePlatformItem>([
+				[PlatformNameValue.WindowsX64, new EngineUpdatePlatformItem(PlatformNameValue.WindowsX64, 'Windows - x86_64', '(Intel/AMD CPUs)', 'x64')],
+				[PlatformNameValue.MacArm64, new EngineUpdatePlatformItem(PlatformNameValue.MacArm64, 'Mac - arm64', '(Apple Silicon)', 'arm64')],
+				[PlatformNameValue.LinuxX64, new EngineUpdatePlatformItem(PlatformNameValue.LinuxX64, 'Linux - x86_64', '(Intel/AMD CPUs)', 'x64')],
+				[PlatformNameValue.LinuxArm64, new EngineUpdatePlatformItem(PlatformNameValue.LinuxArm64, 'Linux - aarch64', '(NVIDIA Jetson Orin, Raspberry Pi)', 'arm64')]
+			]);
+
+			const items: EngineUpdatePlatformItem[] = [];
+			const selectedItems: EngineUpdatePlatformItem[] = [];
+
+			allItems.forEach((platformItem, platformName) => {
+				if (!this._selectedDevPlatforms.has(platformName)) {
+					items.push(platformItem);
+					if (this._detectedPlatforms.has(platformName)) {
+						selectedItems.push(platformItem);
+					}
+				}
+			});
+
+			const runPlatformSelector: vscode.QuickPick<EngineUpdatePlatformItem> = vscode.window.createQuickPick<EngineUpdatePlatformItem>();
+			runPlatformSelector.title = 'Installing Umajin Engine'
+			runPlatformSelector.step = 4;
+			runPlatformSelector.totalSteps = 6;
+			runPlatformSelector.prompt = 'Choose platforms for launching only (can be none)';
+			runPlatformSelector.placeholder = 'filter';
+			runPlatformSelector.matchOnDescription = true;
+			runPlatformSelector.matchOnDetail = true;
+			runPlatformSelector.canSelectMany = true;
+			runPlatformSelector.items = items;
+			runPlatformSelector.selectedItems = selectedItems;
+			runPlatformSelector.onDidAccept(() => {
+				runPlatformSelector.selectedItems.forEach((item) => {
+					this._selectedRunPlatforms.add(item.platformName);
+				});
+				runPlatformSelector.dispose();
+
+				this._selectChannel();
+			});
+			runPlatformSelector.onDidHide(() => {
+				runPlatformSelector.dispose();
+			});
+			runPlatformSelector.show();
+		}
+	}
+
+	private _selectChannel() {
+		const channelSelector: vscode.QuickPick<EngineUpdateChannelItem> = vscode.window.createQuickPick<EngineUpdateChannelItem>();
+		channelSelector.title = 'Installing Umajin Engine'
+		channelSelector.step = 5;
+		channelSelector.totalSteps = 6;
+		channelSelector.prompt = 'Select distribution channel';
+		channelSelector.placeholder = 'filter';
+		channelSelector.matchOnDescription = true;
+		channelSelector.matchOnDetail = true;
+		channelSelector.items = this._ext.getChannels().map(
+			(channel) => new EngineUpdateChannelItem(channel, channel.title, '', channel.url)
+		);
+		channelSelector.onDidAccept(() => {
+			this._selectedChannel = channelSelector.selectedItems[0]?.channel;
+			channelSelector.dispose();
+			if (this._selectedChannel) {
+				this._selectSource();
+			}
+		});
+		channelSelector.onDidHide(() => {
+			channelSelector.dispose();
+		});
+		channelSelector.show();
+	}
+
+	private _selectSource() {
+		vscode.window.withProgress<void>({
+			location: vscode.ProgressLocation.Notification,
+			title: 'Engine update: Scanning remote jobs',
+			cancellable: true
+		}, (vscProgress, token) => {
+			token.onCancellationRequested(() => {
+				console.log("Engine update cancelled - User cancelled scanning remote jobs");
+			});
+
+			return new Promise<void>((resolve, reject) => {
+				const progress = new Progress(vscProgress, () => { this._selectJobSet(); }, resolve);
+
+				fetch(this._selectedChannel!.url + '/api/json/')
+					.then(
+						(response) => {
+							progress.setBase(5);
+							// console.log('response: ' + JSON.stringify(response));
+							response.json().then(
+								(content) => {
+									// console.log('content: ' + JSON.stringify(content));
+									console.log(`Fetched from "${this._selectedChannel!.url}"`);
+
+									if ('_class' in content && typeof content._class === 'string' && content._class === 'hudson.model.ListView' &&
+										'jobs' in content && Array.isArray(content.jobs)) {
+
+										const jobs = (content.jobs as Array<any>);
+										let jobDone: number = 0;
+
+										jobs.forEach((job) => {
+											if ('name' in job && typeof job.name === 'string' &&
+												'url' in job && typeof job.url === 'string') {
+
+												const nameMatch: RegExpMatchArray | null = job.name.match(/^engine-\w+-(\w+(?:-\w+)?)-(\w+)$/);
+												if (nameMatch) {
+													if (EngineUpdateContext.jobNameMapper.has(nameMatch[1]!)) {
+														const platformName: PlatformName = EngineUpdateContext.jobNameMapper.get(nameMatch[1]!)!;
+
+														let binaryGroup: Binary | undefined = undefined;
+
+														switch (nameMatch[2]!) {
+															case 'tools':
+																if (this._selectedDevPlatforms.has(platformName)) {
+																	binaryGroup = Binary.LS;
+																}
+																break;
+
+															case 'gui':
+																if (this._selectedUIs.has(Binary.GUI) &&
+																	(this._selectedDevPlatforms.has(platformName) || this._selectedRunPlatforms.has(platformName))) {
+																	binaryGroup = Binary.GUI;
+																}
+																break;
+
+															case 'cli':
+																if (this._selectedUIs.has(Binary.CLI) &&
+																	(this._selectedDevPlatforms.has(platformName) || this._selectedRunPlatforms.has(platformName))) {
+																	binaryGroup = Binary.CLI;
+																}
+																break;
+														}
+
+														if (binaryGroup !== undefined) {
+															const binaries: Map<PlatformName, string> = this._URLs.has(binaryGroup) ? this._URLs.get(binaryGroup)! : new Map<PlatformName, string>();
+															binaries.set(platformName, job.url);
+															this._URLs.set(binaryGroup, binaries);
+															console.log(`Job name "${job.name}" matches the selection`);
+														} else {
+															console.log(`Job name "${job.name}" does not match any selected binary-platform combination`);
+														}
+													} else {
+														console.log(`Job name "${job.name}" does not match a known platform`);
+													}
+												} else {
+													console.log(`Job name "${job.name}" does not match the template`);
+												}
+											}
+											jobDone++;
+										});
+
+										if (// found tools for all dev platforms
+											(this._URLs.get(Binary.LS)!.size === this._selectedDevPlatforms.size) &&
+											// and found GUIs for all rev and run platforms (or picked none if not needed)
+											(this._selectedUIs.has(Binary.GUI) ?
+												(this._URLs.has(Binary.GUI) && this._URLs.get(Binary.GUI)!.size === (this._selectedDevPlatforms.size + this._selectedRunPlatforms.size)) :
+												!this._URLs.has(Binary.GUI)) &&
+											// and found CLIs for all rev and run platforms (or picked none if not needed)
+											(this._selectedUIs.has(Binary.CLI) ?
+												(this._URLs.has(Binary.CLI) && this._URLs.get(Binary.CLI)!.size === (this._selectedDevPlatforms.size + this._selectedRunPlatforms.size)) :
+												!this._URLs.has(Binary.CLI))) {
+
+											progress.setBase(10);
+											progress.setTotal(this._URLs.get(Binary.LS)!.size
+												+ (this._URLs.has(Binary.GUI) ? this._URLs.get(Binary.GUI)!.size : 0)
+												+ (this._URLs.has(Binary.CLI) ? this._URLs.get(Binary.CLI)!.size : 0));
+
+											this._URLs.forEach((map, binary) => {
+												map.forEach((URL, platformName) => {
+													fetch(URL + '/api/json/?depth=2')
+														.then(
+															(response) => {
+																// console.log('response: ' + JSON.stringify(response));
+																response.json().then(
+																	(content) => {
+																		// console.log('content: ' + JSON.stringify(content));
+																		console.log(`Fetched from "${URL}"`);
+
+																		if ('_class' in content && typeof content._class === 'string' && content._class === 'hudson.model.FreeStyleProject' &&
+																			'builds' in content && Array.isArray(content.builds)) {
+
+																			(content.builds as Array<any>).forEach((build) => {
+																				if ('_class' in build && typeof build._class === 'string' && build._class === 'hudson.model.FreeStyleBuild' &&
+																					'building' in build && typeof build.building === 'boolean' && build.building === false &&
+																					'result' in build && typeof build.result === 'string' && build.result === 'SUCCESS' &&
+																					'actions' in build && Array.isArray(build.actions) &&
+																					'artifacts' in build && Array.isArray(build.artifacts) &&
+																					'description' in build && typeof build.description === 'string' &&
+																					'timestamp' in build && typeof build.timestamp === 'number') {
+
+																					const description: string = build.description;
+
+																					let artifactsUrl: string | undefined = undefined;
+																					(build.actions as Array<any>).forEach((action) => {
+																						if ('_class' in action && typeof action._class === 'string' && action._class === 'org.jenkinsci.plugins.displayurlapi.actions.RunDisplayAction' &&
+																							'artifactsUrl' in action && typeof action.artifactsUrl === 'string') {
+																							artifactsUrl = action.artifactsUrl;
+																						}
+																					});
+																					if (artifactsUrl !== undefined) {
+																						let relativePath: string | undefined = undefined;
+																						(build.artifacts as Array<any>).forEach((artifact) => {
+																							if ('fileName' in artifact && typeof artifact.fileName === 'string' && !artifact.fileName.match(/-for-app-/) &&
+																								'relativePath' in artifact && typeof artifact.relativePath === 'string') {
+																								relativePath = artifact.relativePath;
+																							}
+																						});
+																						if (relativePath !== undefined) {
+																							console.log(`Found artifact "${artifactsUrl}/${relativePath}" compiled on ` + new Date(build.timestamp as number).toString());
+																							const zipsL1: Map<Binary, Map<PlatformName, Artifact>> = this._zips.has(description) ? this._zips.get(description)! : new Map<Binary, Map<PlatformName, Artifact>>();
+																							const zipsL2: Map<PlatformName, Artifact> = zipsL1.has(binary) ? zipsL1.get(binary)! : new Map<PlatformName, Artifact>();
+																							zipsL2.set(platformName, new Artifact(artifactsUrl + '/' + relativePath, build.timestamp as number));
+																							zipsL1.set(binary, zipsL2);
+																							this._zips.set(description, zipsL1);
+
+																						} else {
+																							console.log('Artifact relative path not found');
+																						}
+																					} else {
+																						console.log('Artifacts URL not found');
+																					}
+																				} else {
+																					console.log('Invalid build structure');
+																				}
+																			});
+																		} else {
+																			console.log('Invalid content structure');
+																		}
+
+																		progress.partFinished();
+																	},
+																	(reason) => {
+																		reportFailureAndReject(reject, 'Failed to parse fetched job info for the engine update: ' + JSON.stringify(reason));
+																	});
+															},
+															(reason) => {
+																reportFailureAndReject(reject, 'Failed to fetch job info for the engine update: ' + JSON.stringify(reason));
+															});
+												});
+											});
+
+										} else {
+											reportFailureAndReject(reject, 'Could not find all the required jobs for the engine update');
+										}
+									}
+								},
+								(reason) => {
+									reportFailureAndReject(reject, 'Failed to parse fetched channel info for the engine update: ' + JSON.stringify(reason));
+								});
+						},
+						(reason) => {
+							reportFailureAndReject(reject, 'Failed to fetch channel info for the engine update: ' + JSON.stringify(reason));
+						});
+			});
+		});
+	}
+
+	private _selectJobSet() {
+		const fullSets = new Map<number, Set<string>>();
+		this._zips.forEach((zipsL1, description) => {
+			console.log(`Job description: ${description}`);
+
+			let earliestTimestamp: number = 0;
+			zipsL1.forEach((zipsL2, binary) => {
+				console.log(`Binary: ${binary}`);
+				zipsL2.forEach((artifact, platformName) => {
+					console.log(`PlatformName: ${platformName}`);
+					console.log(`URL: ${artifact.URL}`);
+					console.log('Date: ' + new Date(artifact.timestamp).toLocaleString());
+					earliestTimestamp = Math.min(earliestTimestamp, -artifact.timestamp);
+				});
+			});
+
+			if (zipsL1.has(Binary.LS) && (zipsL1.get(Binary.LS)!.size === this._selectedDevPlatforms.size) &&
+				(this._selectedUIs.has(Binary.GUI) ?
+					(zipsL1.has(Binary.GUI) && zipsL1.get(Binary.GUI)!.size === (this._selectedDevPlatforms.size + this._selectedRunPlatforms.size)) :
+					!zipsL1.has(Binary.GUI)) &&
+				(this._selectedUIs.has(Binary.CLI) ?
+					(zipsL1.has(Binary.CLI) && zipsL1.get(Binary.CLI)!.size === (this._selectedDevPlatforms.size + this._selectedRunPlatforms.size)) :
+					!zipsL1.has(Binary.CLI))) {
+				console.log(`${description} is a full set`);
+
+				const fullSet: Set<string> = fullSets.has(earliestTimestamp) ? fullSets.get(earliestTimestamp)! : new Set<string>();
+				fullSet.add(description);
+				fullSets.set(earliestTimestamp, fullSet);
+			} else {
+				console.log(`${description} is NOT a full set`);
+			}
+		});
+
+		const items: EngineUpdateJobsetItem[] = [];
+
+		fullSets.forEach((set, timestamp) => {
+			set.forEach((description) => {
+				items.push(new EngineUpdateJobsetItem(description, -timestamp));
+			});
+		});
+
+		if (items.length === 0) {
+			vscode.window.showErrorMessage('Could not find a full set of required artifacts');
+		} else {
+			const buildSelector: vscode.QuickPick<EngineUpdateJobsetItem> = vscode.window.createQuickPick<EngineUpdateJobsetItem>();
+			buildSelector.title = 'Installing Umajin Engine'
+			buildSelector.step = 6;
+			buildSelector.totalSteps = 6;
+			buildSelector.prompt = 'Select build';
+			buildSelector.placeholder = 'filter';
+			buildSelector.matchOnDescription = true;
+			buildSelector.matchOnDetail = true;
+			buildSelector.items = items;
+			buildSelector.onDidAccept(() => {
+				this._selectedJobset = buildSelector.selectedItems[0];
+				buildSelector.dispose();
+				if (this._selectedJobset !== undefined) {
+					this._download();
+				}
+			});
+			buildSelector.onDidHide(() => {
+				buildSelector.dispose();
+			});
+			buildSelector.show();
+		}
+	}
+
+	private _download() {
+		// find if there is going to be any clashes
+		{
+			const allBinaries = new Set<string>();
+			const addBinary = (platform: Platform, binary: Binary) => {
+				const filename: string = this._ext.getBundlePath(platform, binary);
+				if (allBinaries.has(filename)) {
+					this._needPlatformRedirector = true;
+				} else {
+					allBinaries.add(filename);
+				}
+			}
+			this._selectedDevPlatforms.forEach((platformName) => {
+				const platform: Platform = EngineUpdateContext.platforms.get(platformName)!;
+				addBinary(platform, Binary.LS);
+				if (this._withSimCross) {
+					addBinary(platform, Binary.Compiler);
+				}
+				this._selectedUIs.forEach((binary) => {
+					addBinary(platform, binary);
+				});
+			});
+			this._selectedRunPlatforms.forEach((platformName) => {
+				const platform: Platform = EngineUpdateContext.platforms.get(platformName)!;
+				this._selectedUIs.forEach((binary) => {
+					addBinary(platform, binary);
+				});
+			});
+		}
+
+		vscode.window.withProgress<void>({
+			location: vscode.ProgressLocation.Notification,
+			title: 'Engine update (1/4): Downloading artifacts',
+			cancellable: true
+		}, (vscProgress, token) => {
+			token.onCancellationRequested(() => {
+				console.log("Engine update cancelled - User cancelled downloading artifacts");
+			});
+
+			return new Promise<void>((resolve, reject) => {
+				const progress = new Progress(vscProgress, () => { this._deleteOld(); }, resolve);
+
+				const selectedDescription: string = this._selectedJobset!.jobDescription;
+
+				progress.setTotal(((): number => {
+					let remains: number = 0;
+					this._zips.get(selectedDescription)!.forEach((zipsL1) => {
+						remains += zipsL1.size;
+					});
+					return remains;
+				})());
+
+				const cacheFolder: string = this._cacheFolder();
+
+				const createAndProceed = () => {
+					fs.mkdir(cacheFolder, { recursive: true }, (errno) => {
+						if (errno !== null) {
+							console.error(`Cannot create directory "${cacheFolder}":`, errno);
+						} else {
+							this._zips.get(selectedDescription)!.forEach((zipsL1, binary) => {
+								zipsL1.forEach((artifact, platformName) => {
+									const filename: string = cacheFolder + path.sep + binary + '-' + platformName + '.zip';
+
+									http.get(artifact.URL, (response) => {
+										response.pipe(fs.createWriteStream(filename, { flush: true }))
+											.on('error', (reason) => {
+												fs.unlink(filename, (errno) => {
+													if (errno !== null) {
+														console.error(`Cannot remove ${filename}: `, errno);
+													}
+												});
+												reportFailureAndReject(reject, 'Failed to save downloaded artifact "' + artifact.URL + '": ' + reason);
+											})
+											.on('finish', () => {
+												console.log(`Artifact "${filename}" downloaded successfully`);
+
+												progress.partFinished();
+											});
+									}).on('error', (reason) => {
+										fs.unlink(filename, (errno) => {
+											if (errno !== null) {
+												console.error(`Cannot remove ${filename}: `, errno);
+											}
+										});
+										reportFailureAndReject(reject, 'Failed to download artifact "' + artifact.URL + '": ' + reason);
+									});
+
+								});
+							});
+						}
+					});
+				};
+
+				fs.stat(cacheFolder, (errno) => {
+					if (errno !== null) {
+						createAndProceed();
+					} else {
+						fs.rm(cacheFolder, { recursive: true, force: true }, (errno) => {
+							if (errno !== null) {
+								reportFailureAndReject(reject, 'Failed to cleanup cache folder: ' + errno);
+							} else {
+								createAndProceed();
+							}
+						});
+					}
+				});
+			});
+		});
+	}
+
+	private _deleteOld() {
+		this._ext.stopLanguageClientQuiet(true);
+
+		vscode.window.withProgress<void>({
+			location: vscode.ProgressLocation.Notification,
+			title: 'Engine update (2/4): Deleting previous installation',
+			cancellable: true
+		}, (vscProgress, token) => {
+			token.onCancellationRequested(() => {
+				console.log("Engine update cancelled - User cancelled deleting files");
+			});
+
+			return new Promise<void>((resolve, reject) => {
+				const progress = new Progress(vscProgress, () => { this._checkInfrastructure(); }, resolve);
+
+				progress.setTotal(((): number => {
+					let remains: number = this._presentAssociatedFiles.size + 1 /* if there are none, proceed to the next step*/;
+					this._presentBinaries.forEach((map) => {
+						remains += map.size;
+					});
+					return remains;
+				})());
+
+				const deleteOld = (filename: string) => {
+					console.log(`Deleting "${filename}"`)
+
+					fs.rm(filename, { recursive: true, force: true }, (errno) => {
+						if (errno !== null) {
+							reportFailureAndReject(reject, 'Failed to delete "' + filename + '": ' + errno);
+						} else {
+							progress.partFinished();
+						}
+					});
+				};
+
+				this._presentAssociatedFiles.forEach((filename) => {
+					deleteOld(filename);
+				});
+				this._presentBinaries.forEach((map) => {
+					map.forEach((filename) => {
+						deleteOld(filename);
+					});
+				});
+				progress.partFinished();
+			});
+		});
+	}
+
+	private _checkInfrastructure() {
+		vscode.window.withProgress<void>({
+			location: vscode.ProgressLocation.Notification,
+			title: 'Engine update (3/4): Checking infrastructure...',
+			cancellable: true
+		}, (vscProgress, token) => {
+			token.onCancellationRequested(() => {
+				console.log("Engine update cancelled - User cancelled checking the infrastructure");
+			});
+			return new Promise<void>((resolve, reject) => {
+				const progress = new Progress(vscProgress, () => { this._installNew(); }, resolve);
+
+				if (this._needPlatformRedirector) {
+					if (this._selectedDevPlatforms.has(PlatformNameValue.MacArm64) ||
+						this._selectedDevPlatforms.has(PlatformNameValue.LinuxX64) ||
+						this._selectedDevPlatforms.has(PlatformNameValue.LinuxArm64)) {
+						this._needRedirection.add(Binary.LS);
+					}
+
+					if (this._withSimCross && (
+						this._selectedDevPlatforms.has(PlatformNameValue.MacArm64) ||
+						this._selectedDevPlatforms.has(PlatformNameValue.LinuxX64) ||
+						this._selectedDevPlatforms.has(PlatformNameValue.LinuxArm64))) {
+						this._needRedirection.add(Binary.Compiler);
+					}
+
+					if (this._selectedUIs.has(Binary.GUI) && (
+						this._selectedDevPlatforms.has(PlatformNameValue.LinuxX64) ||
+						this._selectedDevPlatforms.has(PlatformNameValue.LinuxArm64) ||
+						this._selectedRunPlatforms.has(PlatformNameValue.LinuxX64) ||
+						this._selectedRunPlatforms.has(PlatformNameValue.LinuxArm64))) {
+						this._needRedirection.add(Binary.GUI);
+					}
+
+					if (this._selectedUIs.has(Binary.CLI) && (
+						this._selectedDevPlatforms.has(PlatformNameValue.MacArm64) ||
+						this._selectedDevPlatforms.has(PlatformNameValue.LinuxX64) ||
+						this._selectedDevPlatforms.has(PlatformNameValue.LinuxArm64) ||
+						this._selectedRunPlatforms.has(PlatformNameValue.MacArm64) ||
+						this._selectedRunPlatforms.has(PlatformNameValue.LinuxX64) ||
+						this._selectedRunPlatforms.has(PlatformNameValue.LinuxArm64))) {
+						this._needRedirection.add(Binary.CLI);
+					}
+				}
+
+				progress.setTotal(
+					// test / create symlinks
+					EngineUpdateContext.allBinaries.size
+					// for each unix dev platform create platform / stdlib.u symlink
+					+ (this._needPlatformRedirector
+						? (this._selectedDevPlatforms.size
+							- (this._selectedDevPlatforms.has(PlatformNameValue.WindowsX64) ? 1 : 0))
+						: 0)
+					// check / fix / delete the platform-redirector
+					+ 1
+					// check / delete empty redirected folders
+					+ EngineUpdateContext.platforms.size - 1 /* windows */
+				);
+
+				const makeSymlink = (filename: string, target: string) => {
+					fs.mkdir(path.dirname(filename), { recursive: true }, (errno) => {
+						if (errno !== null) {
+							reportFailureAndReject(reject, 'Failed to create directory ' + path.dirname(filename) + '":' + errno);
+						} else {
+							fs.symlink(target, filename, (errno) => {
+								if (errno !== null) {
+									reportFailureAndReject(reject, 'Failed to create symlink "' + filename + '": ' + errno);
+								} else {
+									progress.partFinished();
+								}
+							});
+						}
+					});
+				};
+
+				const deleteAndMakeSymlink = (filename: string, target: string) => {
+					fs.rm(filename, { recursive: true, force: true }, (errno) => {
+						if (errno !== null) {
+							reportFailureAndReject(reject, 'Failed to delete symlink "' + filename + '": ' + errno);
+						} else {
+							makeSymlink(filename, target);
+						}
+					});
+				};
+
+				const ensureSymlink = (filename: string, target: string) => {
+					fs.lstat(filename, (errno, stats) => {
+						if (errno === null) {
+							if (stats.isSymbolicLink()) {
+								fs.readlink(filename, (errno, linkString: string) => {
+									if (errno !== null) {
+										reportFailureAndReject(reject, 'Cannot read symlink "' + filename + '": ' + errno);
+									} else {
+										if (linkString === target) {
+											progress.partFinished();
+										} else {
+											deleteAndMakeSymlink(filename, target);
+										}
+									}
+								});
+								return;
+							} else {
+								deleteAndMakeSymlink(filename, target);
+							}
+						} else {
+							makeSymlink(filename, target);
+						}
+					});
+				};
+
+				// test / create symlinks
+				EngineUpdateContext.allBinaries.forEach((binary) => {
+					const filename: string = this._ext.getWsPath() + path.sep + binary;
+					if (this._needRedirection.has(binary)) {
+						ensureSymlink(filename, platformRedirectorName);
+					}
+					else {
+						fs.rm(filename, { recursive: true, force: true }, (errno) => {
+							if (errno !== null) {
+								reportFailure('Failed to delete "' + filename + '": ' + errno);
+							}
+							progress.partFinished();
+						});
+					}
+				});
+
+				if (this._needPlatformRedirector) {
+					// for each unix dev platform create platform / stdlib.u symlink
+					this._selectedDevPlatforms.forEach((platformName) => {
+						if (platformName !== PlatformNameValue.WindowsX64) {
+							ensureSymlink(EngineUpdateContext.platforms.get(platformName)!.redirectedPath(this._ext.getWsPath() + path.sep + 'stdlib.u'), '../../stdlib.u');
+						}
+					});
+
+					// check / fix the content of platform-redirector
+					{
+						const checkAccess = (filename: string) => {
+							fs.access(filename, fs.constants.X_OK, (errno) => {
+								if (errno !== null) {
+									fs.chmod(filename, 0o775 /* rwxrwxr-x */, (errno) => {
+										if (errno !== null) {
+											reportFailureAndReject(reject, 'Cannot change "platform-redirector" file access mode: ' + errno);
+										} else {
+											progress.partFinished();
+										}
+									});
+								} else {
+									progress.partFinished();
+								}
+							});
+						};
+
+						const createFile = (filename: string) => {
+							fs.writeFile(filename, platformRedirectorContent, (errno) => {
+								if (errno === null) {
+									checkAccess(filename);
+								} else {
+									reportFailureAndReject(reject, 'Cannot create "platform-redirector" file: ' + errno);
+								}
+							});
+						};
+
+						const recreateFile = (filename: string) => {
+							fs.rm(filename, { recursive: true, force: true }, (errno) => {
+								if (errno === null) {
+									createFile(filename);
+								} else {
+									reportFailureAndReject(reject, 'Cannot recreate "platform-redirector" file: ' + errno);
+								}
+							});
+						};
+
+						const filename: string = this._ext.getWsPath() + path.sep + platformRedirectorName;
+						fs.stat(filename, (errno, stats) => {
+							if (errno === null) {
+								if (stats.isFile()) {
+									fs.readFile(filename, 'utf-8', (errno, data) => {
+										if (errno !== null) {
+											console.error('Cannot read platform-redirector file: ', errno);
+										} else {
+											if (data === platformRedirectorContent) {
+												checkAccess(filename);
+											} else {
+												recreateFile(filename);
+											}
+										}
+									});
+								} else {
+									recreateFile(filename);
+								}
+							} else {
+								createFile(filename);
+							}
+						});
+					}
+				}
+				else {
+					// delete the platform-redirector
+					const filename: string = this._ext.getWsPath() + path.sep + platformRedirectorName;
+					fs.rm(filename, { recursive: true, force: true }, (errno) => {
+						if (errno !== null) {
+							reportFailure('Failed to delete "' + filename + '": ' + errno);
+						}
+						progress.partFinished();
+					});
+				}
+
+				EngineUpdateContext.platforms.forEach((platformValue, platformName) => {
+					if (platformName !== PlatformNameValue.WindowsX64) {
+						if (!this._needPlatformRedirector
+							|| (!this._selectedDevPlatforms.has(platformName)
+								&& !this._selectedRunPlatforms.has(platformName)
+							)) {
+							const subfoldername: string = this._ext.getWsPath() + path.sep + platformValue.redirectionFolder;
+							fs.readdir(subfoldername, (errno, files) => {
+								if (errno !== null) {
+									if (errno.code !== 'ENOENT' /* was not here at all */) {
+										reportFailure('Cannot read folder "' + subfoldername + '": ' + errno);
+									}
+									progress.partFinished();
+								} else {
+									if (files.length !== 0) {
+										progress.partFinished();
+									} else {
+										fs.rmdir(subfoldername, (errno) => {
+											if (errno !== null) {
+												reportFailure('Cannot remove empty folder "' + subfoldername + '": ' + errno);
+												progress.partFinished();
+											} else {
+												if (!this._needPlatformRedirector // only sinlge *nix platform is selected
+													|| ( // no subplatforms:
+														platformValue.isMac
+														// multiple subplatforms:
+														|| (platformValue.isLinux
+															// but none is selected:
+															&& !this._selectedDevPlatforms.has(PlatformNameValue.LinuxX64)
+															&& !this._selectedRunPlatforms.has(PlatformNameValue.LinuxX64)
+															&& !this._selectedDevPlatforms.has(PlatformNameValue.LinuxArm64)
+															&& !this._selectedRunPlatforms.has(PlatformNameValue.LinuxArm64)))) {
+													const foldername: string = path.dirname(subfoldername);
+													fs.readdir(foldername, (errno, files) => {
+														if (errno !== null) {
+															reportFailure('Cannot read folder "' + foldername + '": ' + errno);
+															progress.partFinished();
+														} else {
+															if (files.length !== 0) {
+																progress.partFinished();
+															} else {
+																fs.rmdir(foldername, (errno) => {
+																	if (errno !== null && errno.code !== 'ENOENT' /* may be already deleted */) {
+																		reportFailure('Cannot remove empty folder "' + foldername + '": ' + errno);
+																	}
+																	progress.partFinished();
+																});
+															}
+														}
+													});
+												} else {
+													progress.partFinished();
+												}
+											}
+										});
+									}
+								}
+							});
+						} else {
+							progress.partFinished();
+						}
+					}
+				});
+			});
+		});
+	}
+
+	private _installNew() {
+		vscode.window.withProgress<void>({
+			location: vscode.ProgressLocation.Notification,
+			title: 'Engine update (4/4): Unpacking artifacts...',
+			cancellable: true
+		}, (vscProgress, token) => {
+			token.onCancellationRequested(() => {
+				console.log("Engine update cancelled - User cancelled unpacking artifacts");
+			});
+
+			vscProgress.report({ increment: 0 });
+
+			return new Promise<void>((resolve, reject) => {
+				const progress = new Progress(vscProgress, () => { this._cleanUp(); }, resolve);
+
+				const selectedDescription: string = this._selectedJobset!.jobDescription;
+
+				progress.setTotal(((): number => {
+					let remains: number = this._withSimCross ? this._zips.get(selectedDescription)!.get(Binary.LS)!.size : 0;
+					this._zips.get(selectedDescription)!.forEach((zipsL1) => {
+						remains += zipsL1.size;
+					});
+					return remains;
+				})());
+
+				const cacheFolder: string = this._cacheFolder();
+
+				const zips: Map<Binary, Map<PlatformName, Artifact>> = this._zips.get(selectedDescription)!;
+
+				zips.forEach((zipsL1, binary) => {
+					switch (binary) {
+						case Binary.LS:
+							zipsL1.forEach((_artifact, platformName) => {
+								const zipname: string = binary + '-' + platformName + '.zip';
+								const filename: string = cacheFolder + path.sep + zipname;
+
+								unzipper.Open.file(filename).then(
+									(centralDirectory) => {
+										centralDirectory.files.forEach((file) => {
+											if (file.type === 'File') {
+												let binary: Binary | undefined = undefined;
+												if (/umajinls/.test(file.path)) {
+													binary = Binary.LS;
+												} else if (/umajinc/.test(file.path) && this._withSimCross) {
+													binary = Binary.Compiler;
+												}
+												if (binary !== undefined) {
+													const platformValue: Platform = EngineUpdateContext.platforms.get(platformName)!;
+													let targetFilepath: string = path.dirname(this._ext.getBundlePath(platformValue, binary)) + path.sep + file.path;
+													if (this._needRedirection.has(binary)) {
+														targetFilepath = platformValue.redirectedPath(targetFilepath);
+													}
+
+													file.stream()
+														.pipe(fs.createWriteStream(targetFilepath,
+															{
+																mode: ((file.externalFileAttributes & 0x1ff0000) !== 0) ? ((file.externalFileAttributes & 0x1ff0000) >> 16) : undefined,
+																flush: true
+															}))
+														.on('error', (reason) => {
+															reportFailureAndReject(reject, 'Failed to extract file "' + file.path + '" from "' + zipname + '": ' + reason);
+														})
+														.on('finish', () => {
+															progress.partFinished();
+														});
+												}
+											}
+										});
+									},
+									(reason) => {
+										reportFailureAndReject(reject, 'Failed to open "' + zipname + '": ' + reason);
+									});
+							});
+							break;
+
+						case Binary.GUI:
+						case Binary.CLI:
+							zipsL1.forEach((_artifact, platformName) => {
+								const zipname: string = binary + '-' + platformName + '.zip';
+								const filename: string = cacheFolder + path.sep + zipname;
+
+								unzipper.Open.file(filename).then((centralDirectory) => {
+									let zipRemain: number = centralDirectory.files.length;
+									const onUnzipped = () => {
+										zipRemain--;
+										if (zipRemain === 0) {
+											progress.partFinished();
+										}
+									};
+									centralDirectory.files.forEach((file) => {
+										const platformValue: Platform = EngineUpdateContext.platforms.get(platformName)!;
+										let targetFilepath: string = path.dirname(this._ext.getBundlePath(platformValue, binary)) + path.sep + file.path;
+										const unzip = () => {
+											switch (file.type) {
+												case 'File':
+													let fileKind: FileInZipKind = FileInZipKind.Unsupported;
+
+													if ((file.externalFileAttributes & 0xffff0000) === 0) {
+														// Windows file attributes: treat all as files
+														fileKind = FileInZipKind.Regular;
+													} else {
+														switch ((file.externalFileAttributes >> 16) & 0xf000) {
+															case 0xa000: // symlink
+																fileKind = FileInZipKind.Symlink;
+																break;
+
+															case 0x8000: // file
+																if ((platformName === PlatformNameValue.MacArm64) && path.basename(file.path).startsWith('._')) {
+																	// it may be a weird apple meta file
+																	fileKind = FileInZipKind.Ignore;
+																}
+																else {
+																	fileKind = FileInZipKind.Regular;
+																}
+																break;
+														}
+													}
+													switch (fileKind) {
+														case FileInZipKind.Regular:
+															fs.mkdir(path.dirname(targetFilepath), {
+																recursive: true,
+																mode: ((file.externalFileAttributes & 0x1ff0000) !== 0) ? (((file.externalFileAttributes & 0x1ff0000) >> 16) | 0o111/*--x--x--x*/) : undefined
+															}, (errno) => {
+																if (errno === null) {
+																	file.stream()
+																		.pipe(fs.createWriteStream(targetFilepath,
+																			{
+																				mode: ((file.externalFileAttributes & 0x1ff0000) !== 0) ? ((file.externalFileAttributes & 0x1ff0000) >> 16) : undefined,
+																				flush: true
+																			}))
+																		.on('error', (reason) => {
+																			reportFailureAndReject(reject, 'Failed to extract file "' + file.path + '" from "' + zipname + '": ' + reason);
+																		})
+																		.on('finish', () => {
+																			onUnzipped();
+																		});
+																} else {
+																	reportFailureAndReject(reject, 'Failed to create directory for file "' + file.path + '" while unpacking "' + zipname + '": ' + errno);
+																}
+															});
+															break;
+
+														case FileInZipKind.Symlink:
+															fs.mkdir(path.dirname(targetFilepath), {
+																recursive: true,
+																mode: ((file.externalFileAttributes & 0x1ff0000) !== 0) ? (((file.externalFileAttributes & 0x1ff0000) >> 16) | 0o111/*--x--x--x*/) : undefined
+															}, (errno) => {
+																if (errno === null) {
+																	file.buffer().then((value) => {
+																		fs.symlink(value.toString(), targetFilepath, (errno) => {
+																			if (errno === null) {
+																				onUnzipped();
+																			} else {
+																				reportFailureAndReject(reject, 'Failed to create symlink "' + file.path + '" while unpacking "' + zipname + '": ' + errno);
+																			}
+																		});
+																	});
+																} else {
+																	reportFailureAndReject(reject, 'Failed to create directory for symlink "' + file.path + '" while unpacking "' + zipname + '": ' + errno);
+																}
+															});
+															break;
+
+														case FileInZipKind.Ignore:
+															onUnzipped();
+															break;
+
+														default:
+															reportFailureAndReject(reject, 'Failed to extract unsupported item "' + file.path + '" from "' + zipname + '"');
+													}
+
+													break;
+
+												case 'Directory':
+													fs.mkdir(targetFilepath, {
+														recursive: true,
+														mode: ((file.externalFileAttributes & 0x1ff0000) !== 0) ? (file.externalFileAttributes & 0x1ff0000) >> 16 : undefined
+													}, (errno) => {
+														if (errno == null) {
+															onUnzipped();
+														} else {
+															reportFailureAndReject(reject, 'Failed to create directory "' + file.path + '" while unpacking "' + zipname + '": ' + errno);
+														}
+													});
+													break;
+											}
+										};
+
+										if (!((platformName === PlatformNameValue.MacArm64) && (binary === Binary.GUI))) {
+											if (this._needRedirection.has(binary)) {
+												targetFilepath = platformValue.redirectedPath(targetFilepath);
+											}
+										}
+
+										unzip();
+									});
+								},
+									(reason) => {
+										reportFailureAndReject(reject, 'Failed to open "' + zipname + '": ' + reason);
+									});
+							});
+							break;
+					}
+				});
+			});
+		});
+	}
+
+	private _cleanUp() {
+		fs.rm(this._cacheFolder(), { recursive: true, force: true }, (errno) => {
+			if (errno !== null) {
+				console.error('Failed to delete engine update cache folder: ', errno);
+			}
+
+			this._generateStdlib();
+		});
+	}
+
+	private _generateStdlib() {
+		if (this._selectedDevPlatforms.has(nativePlatform.nameForCompiler) || this._selectedRunPlatforms.has(nativePlatform.nameForCompiler)) {
+			this._ext.generateStdLibTry(this._selectedUIs.has(Binary.GUI), this._selectedUIs.has(Binary.CLI), (_success) => {
+				this._reportUpdateComplete();
+			});
+		} else {
+			vscode.window.showWarningMessage('Cannot generate Umajin Standard Library: no Umajin support is installed for this platform.');
+			this._reportUpdateComplete();
+		}
+	}
+
+	private _reportUpdateComplete() {
+		if (this._selectedDevPlatforms.has(nativePlatform.nameForCompiler)) {
+			this._ext.startLanguageClientQuiet(true);
+		} else {
+			vscode.window.showWarningMessage('Cannot start Umajin Language Client: no Umajin development support is installed for this platform.');
+		}
+
+		let engineVersion: string = this._selectedJobset!.label;
+		if (this._selectedJobset!.detail !== '') {
+			engineVersion += ' (' + this._selectedJobset!.detail + ')';
+		}
+		vscode.window.showInformationMessage('Umajin Engine is updated to ' + engineVersion);
+	}
+};
 
 class UmajinExtension {
 	private _context: vscode.ExtensionContext;
-	private _languageClient?: langclient.LanguageClient | null = null;
+	private _languageClient?: languageClient.LanguageClient | null = null;
 	private _serverVersion: string = '';
 
 	private _wsPath: string = '';
@@ -246,30 +2067,32 @@ class UmajinExtension {
 	private _ui: string = packageJson.contributes.configuration.properties['umajin.ui'].default;
 	private _simulateCompiler: string = packageJson.contributes.configuration.properties['umajin.simulate.compiler'].default;
 	private _simulatePlatform: string = packageJson.contributes.configuration.properties['umajin.simulate.platform'].default;
+	private _channels: Channels = packageJson.contributes.configuration.properties['umajin.update.channels'].default;
 
 	public constructor(context: vscode.ExtensionContext) {
 		this._context = context;
 
 		this._context.subscriptions.push(
-			vscode.commands.registerCommand('umajin.generateStdLib', this.generateStdLib),
-			vscode.commands.registerCommand('umajin.generateWorkspace', this.generateWorkspace),
-			vscode.commands.registerCommand('umajin.applyAllCodeActions', this.applyAllCodeActions),
-			vscode.commands.registerCommand('umajin.autoformatAll', this.autoformatAll),
-			vscode.commands.registerCommand('umajin.stopLanguageClient', this.stopLanguageClient),
-			vscode.commands.registerCommand('umajin.startLanguageClient', this.startLanguageClient),
-			vscode.commands.registerCommand('umajin.restartLanguageClient', this.restartLanguageClient),
-			vscode.commands.registerCommand('umajin.statusLanguageClient', this.statusLanguageClient),
-			vscode.commands.registerCommand('umajin.openEngineHelp', this.openEngineHelp)
+			vscode.commands.registerCommand('umajin.generateStdLib', UmajinExtension.generateStdLib),
+			vscode.commands.registerCommand('umajin.generateWorkspace', UmajinExtension.generateWorkspace),
+			vscode.commands.registerCommand('umajin.applyAllCodeActions', UmajinExtension.applyAllCodeActions),
+			vscode.commands.registerCommand('umajin.autoformatAll', UmajinExtension.autoformatAll),
+			vscode.commands.registerCommand('umajin.stopLanguageClient', UmajinExtension.stopLanguageClient),
+			vscode.commands.registerCommand('umajin.startLanguageClient', UmajinExtension.startLanguageClient),
+			vscode.commands.registerCommand('umajin.restartLanguageClient', UmajinExtension.restartLanguageClient),
+			vscode.commands.registerCommand('umajin.statusLanguageClient', UmajinExtension.statusLanguageClient),
+			vscode.commands.registerCommand('umajin.openEngineHelp', UmajinExtension.openEngineHelp),
+			vscode.commands.registerCommand('umajin.updateEngine', UmajinExtension.updateEngine)
 		);
 
 		if (vscode.workspace.workspaceFolders !== undefined) {
 			this._readConfig();
 
-			this._restartLanguageClient();
+			this._restartLanguageClientQuiet();
 
 			this._context.subscriptions.push(
 				vscode.commands.registerCommand('umajin.run', (resource: vscode.Uri) => {
-					let targetResource = resource;
+					let targetResource: vscode.Uri = resource;
 					if (!targetResource && vscode.window.activeTextEditor) {
 						targetResource = vscode.window.activeTextEditor.document.uri;
 					}
@@ -290,7 +2113,7 @@ class UmajinExtension {
 	}
 
 	public destruct() {
-		this._stopLanguageClient();
+		this.stopLanguageClientQuiet(true);
 	}
 
 
@@ -330,52 +2153,109 @@ class UmajinExtension {
 		return this._simulatePlatform;
 	}
 
+	public getChannels(): Channels {
+		return this._channels;
+	}
+
 
 	public updateConfiguration(event: vscode.ConfigurationChangeEvent) {
 		this._readConfig();
 
 		if (event.affectsConfiguration('umajin.path.languageServer') ||
-			event.affectsConfiguration('umajin.path' + nativeSuffix + '.languageServer') ||
+			event.affectsConfiguration('umajin.path' + nativePlatform.configGenericSuffix + '.languageServer') ||
+			event.affectsConfiguration('umajin.path' + nativePlatform.configSpecificSuffix + '.languageServer') ||
 			event.affectsConfiguration('umajin.advanced.languageServer')) {
-			this._restartLanguageClient();
+			this._restartLanguageClientQuiet();
 		}
 	}
 
-	public generateStdLib() {
+	public static generateStdLib() {
 		if (vscode.workspace.workspaceFolders === undefined) {
-			vscode.window.showErrorMessage('Generating Umajin standard library requires Umajin workspace to be open.');
+			vscode.window.showErrorMessage('Generating Umajin Standard Library requires Umajin workspace to be open.');
 			return;
 		}
 
 		const self: UmajinExtension = umajin!;
-		for (const umajinJitFullPath of [self._umajinGuiFullPath, self._umajinCliFullPath]) {
-			if (fs.existsSync(umajinJitFullPath)) {
-				const options: child_process.SpawnSyncOptions = {
-					cwd: self._wsPath
-				};
-				const result = child_process.spawnSync(umajinJitFullPath, ['--print-stdlib'], options);
-				if ((result.status !== 0) && (result.status !== 2)) /* old expected status code of --print-stdlib is 2 */ {
-					const message: string = 'An attempt to generate Umajin standard library using "' + umajinJitFullPath + '" failed with code ' + result.status;
-					vscode.window.showErrorMessage(message);
-					console.error(message);
-					if (result.error !== undefined) {
-						console.error('Error: ' + result.error);
-					}
-					if (Buffer.byteLength(result.stdout) !== 0) {
-						console.error('Output: ' + result.stdout);
-					}
-					if (Buffer.byteLength(result.stderr) !== 0) {
-						console.error('Error stream: ' + result.stderr);
-					}
-				} else {
-					vscode.window.showInformationMessage('Umajin standard library generated.');
-					return;
-				}
+		self.generateStdLibTry(true, true, (success) => {
+			if (success) {
+				vscode.window.showInformationMessage('Umajin Standard Library generated.');
+			} else {
+				vscode.window.showWarningMessage('Failed to generate Umajin Standard Library.');
 			}
+		});
+	}
+
+	public generateStdLibTry(tryGUI: boolean, tryCLI: boolean, callback: (success: boolean) => void) {
+		if (tryGUI) {
+			this._generateStdLibTryUI(this._umajinGuiFullPath, (success) => {
+				if (success) {
+					callback(true);
+				} else {
+					this.generateStdLibTry(false, tryCLI, callback);
+				}
+			});
+		} else if (tryCLI) {
+			this._generateStdLibTryUI(this._umajinCliFullPath, callback);
 		}
 	}
 
-	public async generateWorkspace(): Promise<void> {
+	private _generateStdLibTryUI(umajinJitFullPath: string, callback: (success: boolean) => void, attempts: number = 5, delay: number = 1000) {
+		fs.access(umajinJitFullPath, fs.constants.X_OK, (errno) => {
+			if (errno != null) {
+				console.error(`Cannot check "execute" access of "${umajinJitFullPath}": `, errno);
+				callback(false);
+			} else {
+				const child = childProcess.spawn(umajinJitFullPath, ['--print-stdlib'], {
+					cwd: this._wsPath,
+					stdio: ['ignore', 'pipe', 'pipe']
+				},)
+					.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
+						if (signal === null && code !== null) {
+							switch (code) {
+								case 0:
+								case 2: // old expected status code of --print-stdlib
+									callback(true);
+									return;
+
+								case 126: // text file busy
+									if (attempts > 1) {
+										setTimeout(() => {
+											this._generateStdLibTryUI(umajinJitFullPath, callback, attempts - 1, delay);
+										}, delay);
+									} else {
+										callback(false);
+									}
+									return;
+							}
+						}
+
+						let info: string = '';
+						if (code !== null) {
+							info += ' exit code: ' + code;
+						}
+						if (signal !== null) {
+							info += ' signal: ' + signal;
+						}
+						const stdout: Buffer | null = child.stdout.read();
+						if (stdout !== null) {
+							info += ' stdout: "' + stdout.toString() + '"';
+						}
+						const stderr: Buffer | null = child.stderr.read();
+						if (stderr !== null) {
+							info += ' stderr: "' + stderr.toString() + '"';
+						}
+						console.error('Cannot generate Umajin Standard Library using "' + umajinJitFullPath + '":' + info);
+						callback(false);
+					})
+					.on('error', (err: Error) => {
+						reportFailure('Cannot generate Umajin Standard Library using "' + umajinJitFullPath + '": ' + err);
+						callback(false);
+					});
+			}
+		});
+	}
+
+	public static generateWorkspace() {
 		vscode.window.showOpenDialog({
 			title: 'Select start file',
 			canSelectMany: false,
@@ -385,43 +2265,69 @@ class UmajinExtension {
 				// eslint-disable-next-line @typescript-eslint/naming-convention
 				'All files': ['*']
 			}
-		}).then(async rootFileUri => {
+		}).then((rootFileUri) => {
 			if (rootFileUri && rootFileUri[0]) {
-				const rootFullPath = rootFileUri[0].fsPath;
-				const rootFilename = path.parse(rootFullPath).base;
-				const cwFilename = path.parse(rootFullPath).dir + path.sep + path.parse(rootFullPath).name + '.code-workspace';
-				let write: boolean = true;
-				let open: boolean = true;
-				if (fs.existsSync(cwFilename)) {
-					await vscode.window.showInformationMessage(`File '${cwFilename}' already exists.\nDo you want to overwrite it?`, 'Yes', 'No')
-						.then(answer => {
-							if (answer === 'No') {
-								write = false;
-							}
-						});
-				}
-				if (write) {
-					fs.writeFileSync(cwFilename, (jsonParse(
-						fs.readFileSync(
-							umajin!._context.asAbsolutePath('snippets/code-workspace.json'), 'utf-8'))
-					['Umajin VSCode Workspace'].body as string[]).join('\n')
-						.replace('$0', rootFilename));
-				} else {
-					await vscode.window.showInformationMessage(`Do you want to open '${cwFilename}' anyway?`, 'Yes', 'No')
-						.then(answer => {
-							if (answer === 'No') {
-								open = false;
-							}
-						});
-				}
-				if (open) {
+				const rootFullPath: string = rootFileUri[0].fsPath;
+				const rootFilename: string = path.parse(rootFullPath).base;
+				const cwFilename: string = path.parse(rootFullPath).dir + path.sep + path.parse(rootFullPath).name + '.code-workspace';
+
+				const writeFile = (callback: () => void) => {
+					fs.readFile(umajin!._context.asAbsolutePath('snippets/code-workspace.json'), 'utf-8', (errno, data) => {
+						if (errno) {
+							reportFailure('Cannot read the snippet: ' + errno);
+						}
+						else {
+							fs.writeFile(cwFilename, (jsonParse(data)
+							['Umajin VSCode Workspace'].body as string[]).join('\n')
+								.replace('$0', rootFilename), (errno) => {
+									if (errno) {
+										reportFailure('Cannot write Umajin VSCode workspace file: ' + errno);
+									}
+									else {
+										callback();
+									}
+								});
+						}
+					});
+				};
+
+				const openFile = () => {
 					vscode.window.showTextDocument(vscode.Uri.file(cwFilename));
-				}
+				};
+
+				fs.access(cwFilename, fs.constants.R_OK, (errno) => {
+					if (errno === null) {
+						writeFile(openFile);
+					} else {
+						vscode.window.showInformationMessage(`File '${cwFilename}' already exists.\nDo you want to overwrite it?`, 'Yes', 'No')
+							.then((answer) => {
+								switch (answer) {
+									case 'Yes':
+										writeFile(openFile);
+										break;
+
+									case 'No':
+										vscode.window.showInformationMessage(`Do you want to open '${cwFilename}' anyway?`, 'Yes', 'No')
+											.then((answer) => {
+												switch (answer) {
+													case 'Yes':
+														openFile();
+														break;
+
+													case 'No':
+														break;
+												}
+											});
+										break;
+								}
+							});
+					}
+				});
 			}
 		});
 	}
 
-	public applyAllCodeActions() {
+	public static applyAllCodeActions() {
 		if (vscode.workspace.workspaceFolders === undefined) {
 			vscode.window.showErrorMessage('Applying all code actions requires Umajin workspace to be open.');
 			return;
@@ -435,13 +2341,12 @@ class UmajinExtension {
 
 		vscode.window.showInformationMessage('Do you want to apply code actions to all files in the project or to open files only?', 'The whole project', 'Open files only')
 			.then(answer => {
-				const openOnly = (answer === 'Open files only');
 				self._languageClient!.sendRequest('workspace/executeCommand',
 					{
 						'command': 'applyAllCodeActions',
 						'arguments':
 							[
-								{ 'openOnly': openOnly }
+								{ 'openOnly': (answer === 'Open files only') }
 							]
 					}
 				);
@@ -449,7 +2354,7 @@ class UmajinExtension {
 			);
 	}
 
-	public autoformatAll() {
+	public static autoformatAll() {
 		if (vscode.workspace.workspaceFolders === undefined) {
 			vscode.window.showErrorMessage('Autoformatting all Umajin files requires Umajin workspace to be open.');
 			return;
@@ -463,13 +2368,12 @@ class UmajinExtension {
 
 		vscode.window.showInformationMessage('Do you want to autoformat all files in the project or to open files only?', 'The whole project', 'Open files only')
 			.then(answer => {
-				const openOnly = (answer === 'Open files only');
 				self._languageClient!.sendRequest('workspace/executeCommand',
 					{
 						'command': 'autoformatAll',
 						'arguments':
 							[
-								{ 'openOnly': openOnly }
+								{ 'openOnly': (answer === 'Open files only') }
 							]
 					}
 				);
@@ -594,13 +2498,56 @@ class UmajinExtension {
 		return prefix + input + postfix;
 	}
 
-	private _readPath(entryTail: string, defaultValue: string, filePart: string) {
-		let path: string = vscode.workspace.getConfiguration().get('umajin.path' + nativeSuffix + entryTail, '');
+	private _readPath(platform: Platform, entryTail: string, defaultValue: string, filePart: string) {
+		let path: string = vscode.workspace.getConfiguration().get('umajin.path' + platform.configSpecificSuffix + entryTail, '');
+		if (path === '') {
+			path = vscode.workspace.getConfiguration().get('umajin.path' + platform.configGenericSuffix + entryTail, defaultValue);
+		}
 		if (path === '') {
 			path = vscode.workspace.getConfiguration().get('umajin.path' + entryTail, defaultValue);
 		}
 
 		return makeAbsolute(this._wsPath, path, filePart);
+	}
+
+	public getFilePath(platform: Platform, binary: Binary, file: string): string {
+		switch (binary) {
+			case Binary.GUI:
+				return this._readPath(platform, '.jitEngine', this._umajinGuiFullPath, file);
+
+			case Binary.CLI:
+				return this._readPath(platform, '.cliEngine', this._umajinCliFullPath, file);
+
+			case Binary.Compiler:
+				return this._readPath(platform, '.compiler', this._umajincFullPath, file);
+
+			case Binary.LS:
+				return this._readPath(platform, '.languageServer', this._umajinlsFullPath, file);
+		}
+	}
+
+	public getBundlePath(platform: Platform, binary: Binary): string {
+		switch (binary) {
+			case Binary.GUI:
+				return this.getFilePath(platform, binary, platform.appName(binary));
+
+			case Binary.CLI:
+			case Binary.Compiler:
+			case Binary.LS:
+				return this.getFilePath(platform, binary, platform.binName(binary));
+		}
+	}
+
+	public getExePath(platform: Platform, binary: Binary): string {
+		switch (binary) {
+			case Binary.GUI:
+				return this.getFilePath(platform, binary, platform.binInAppName(binary));
+
+			case Binary.CLI:
+			case Binary.Compiler:
+			case Binary.LS:
+				return this.getFilePath(platform, binary, platform.binName(binary));
+		}
 	}
 
 	private _readConfig() {
@@ -627,13 +2574,13 @@ class UmajinExtension {
 		this._languageServerArguments =
 			vscode.workspace.getConfiguration().get('umajin.advanced.languageServer.arguments', this._languageServerArguments);
 
-		this._umajincFullPath = this._readPath('.compiler', this._umajincFullPath, exeName('umajinc'));
+		this._umajinGuiFullPath = this.getExePath(nativePlatform, Binary.GUI);
 
-		this._umajinCliFullPath = this._readPath('.cliEngine', this._umajinCliFullPath, appName('umajin_cli'));
+		this._umajinCliFullPath = this.getExePath(nativePlatform, Binary.CLI);
 
-		this._umajinGuiFullPath = this._readPath('.jitEngine', this._umajinGuiFullPath, appName('umajin'));
+		this._umajincFullPath = this.getExePath(nativePlatform, Binary.Compiler);
 
-		this._umajinlsFullPath = this._readPath('.languageServer', this._umajinlsFullPath, exeName('umajinls'));
+		this._umajinlsFullPath = this.getExePath(nativePlatform, Binary.LS);
 
 		this._root = makeAbsolute(this._wsPath, '.',
 			vscode.workspace.getConfiguration().get('umajin.root', this._root));
@@ -646,44 +2593,27 @@ class UmajinExtension {
 
 		this._simulatePlatform =
 			vscode.workspace.getConfiguration().get('umajin.simulate.platform', this._simulatePlatform);
+
+		this._channels =
+			vscode.workspace.getConfiguration().get('umajin.update.channels', this._channels);
 	}
 
-	public stopLanguageClient() {
+	public static stopLanguageClient() {
 		const self: UmajinExtension = umajin!;
-		if (self._stopLanguageClient()) {
-			vscode.window.showInformationMessage('Umajin Language Client is stopped.');
-		} else {
-			vscode.window.showErrorMessage('Cannot stop Umajin Language Client: it was not running.');
-		}
+		self.stopLanguageClientQuiet(false);
 	}
 
-	public startLanguageClient() {
-		const self: UmajinExtension = umajin!;
-		if (self._startLanguageClient()) {
-			vscode.window.showInformationMessage('Umajin Language Client is started.');
-		} else {
-			vscode.window.showErrorMessage('Cannot start Umajin Language Client: it was already running.');
-		}
-	}
-
-	public restartLanguageClient() {
-		const self: UmajinExtension = umajin!;
-		self.stopLanguageClient();
-		self.startLanguageClient();
-	}
-
-	public statusLanguageClient() {
-		const self: UmajinExtension = umajin!;
-		vscode.window.showInformationMessage(self._languageClient
-			? 'Umajin Language Client is running.'
-			: 'Umajin Language Client is not running.');
-	}
-
-	private _stopLanguageClient(): boolean {
+	public stopLanguageClientQuiet(quiet: boolean): boolean {
 		if (this._languageClient) {
 			this._languageClient.stop();
 			this._deleteLanguageClient();
+			if (!quiet) {
+				vscode.window.showInformationMessage('Umajin Language Client is stopped.');
+			}
 			return true;
+		}
+		if (!quiet) {
+			vscode.window.showErrorMessage('Cannot stop Umajin Language Client: it was not running.');
 		}
 		return false;
 	}
@@ -694,14 +2624,19 @@ class UmajinExtension {
 		this._serverVersion = '';
 	}
 
-	private _startLanguageClient(): boolean {
+	public static startLanguageClient() {
+		const self: UmajinExtension = umajin!;
+		self.startLanguageClientQuiet(false);
+	}
+
+	public startLanguageClientQuiet(quiet: boolean): boolean {
 		if (!this._languageClient) {
-			const serverOptions: langclient.ServerOptions = {
+			const serverOptions: languageClient.ServerOptions = {
 				command: (this._languageServerCommand !== '') ? this._languageServerCommand : this._umajinlsFullPath,
 				args: this._languageServerArguments
 			};
 
-			const clientOptions: langclient.LanguageClientOptions = {
+			const clientOptions: languageClient.LanguageClientOptions = {
 				documentSelector: [
 					{
 						scheme: 'file',
@@ -714,7 +2649,7 @@ class UmajinExtension {
 				}
 			};
 
-			this._languageClient = new langclient.LanguageClient(
+			this._languageClient = new languageClient.LanguageClient(
 				'umajinls',
 				'Umajin Language Server',
 				serverOptions,
@@ -740,17 +2675,45 @@ class UmajinExtension {
 					console.error(error);
 					this._deleteLanguageClient();
 				});
+			if (!quiet) {
+				vscode.window.showInformationMessage('Umajin Language Client is started.');
+			}
 			return true;
+		}
+		if (!quiet) {
+			vscode.window.showErrorMessage('Cannot start Umajin Language Client: it was already running.');
 		}
 		return false;
 	}
 
-	private _restartLanguageClient() {
-		this._stopLanguageClient();
-		this._startLanguageClient();
+	public static restartLanguageClient() {
+		UmajinExtension.stopLanguageClient();
+		UmajinExtension.startLanguageClient();
 	}
 
-	public async openEngineHelp(args: Object) {
+	private _restartLanguageClientQuiet() {
+		this.stopLanguageClientQuiet(true);
+		this.startLanguageClientQuiet(true);
+	}
+
+	public static statusLanguageClient() {
+		const self: UmajinExtension = umajin!;
+		vscode.window.showInformationMessage(self._languageClient
+			? 'Umajin Language Client is running.'
+			: 'Umajin Language Client is not running.');
+	}
+
+	public static updateEngine() {
+		if (vscode.workspace.workspaceFolders === undefined) {
+			vscode.window.showErrorMessage('Updating Umajin engine requires Umajin workspace to be open.');
+			return;
+		}
+
+		const self: UmajinExtension = umajin!;
+		new EngineUpdateContext(self);
+	}
+
+	public static async openEngineHelp(args: Object) {
 		const self: UmajinExtension = umajin!;
 
 		if (self._serverVersion === '') {
@@ -767,11 +2730,11 @@ class UmajinExtension {
 				type = args.type as string;
 			} else {
 				const typed = await vscode.window.showInputBox({
-					prompt: "Umajin type, constant, property, method, or event name or signature"
+					prompt: 'Umajin type, constant, property, method, or event name or signature'
 				});
 
 				if (typed !== undefined) {
-					const splitted = typed.match(/^([^:.]+)(?:(?:::|\.)\w+.*)?$/);
+					const splitted: RegExpMatchArray | null = typed.match(/^([^:.]+)(?:(?:::|\.)\w+.*)?$/);
 					if (splitted === null) {
 						return;
 					}
@@ -787,24 +2750,24 @@ class UmajinExtension {
 				}
 			}
 
-			const local = self._engineHelpLocalPath;
-			const remote =
+			const local: string = self._engineHelpLocalPath;
+			const remote: string =
 				(self._engineHelpRemoteSecure ? 'https' : 'http') + '://' +
 				self._engineHelpRemoteServer + '/' + self._serverVersion;
 
-			const path = '/library/' + type + '.html';
+			const path: string = '/library/' + type + '.html';
 
-			let useLocal = false;
+			let useLocal: boolean = false;
 
-			let fullPath = makeAbsolute(self._wsPath, local, path);
+			let fullPath: string = makeAbsolute(self._wsPath, local, path);
 			if (fs.existsSync(fullPath)) {
 				if (self._engineHelpLocalIgnoreVersion) {
 					useLocal = true;
 				}
 				else {
-					let versionCheckPath = makeAbsolute(self._wsPath, local, 'version.txt');
+					let versionCheckPath: string = makeAbsolute(self._wsPath, local, 'version.txt');
 					if (fs.existsSync(versionCheckPath)) {
-						const versionCheck = fs.readFileSync(versionCheckPath, 'utf-8');
+						const versionCheck: string = fs.readFileSync(versionCheckPath, 'utf-8');
 						if (versionCheck && versionCheck === self._serverVersion) {
 							useLocal = true;
 						}
@@ -820,13 +2783,13 @@ class UmajinExtension {
 
 			if (section !== '') {
 				if (section.includes('operator ')) {
-					let skip = true;
+					let skip: boolean = true;
 					section = section.split(/operator /).map(part => {
 						if (skip) {
 							skip = false;
 							return part;
 						} else {
-							let parts = part.split(/(\()/);
+							let parts: string[] = part.split(/(\()/);
 							if (parts.length > 0) {
 								parts[0] = 'operator_' + parts[0]!
 									.split(/([-!~=+*/%|^<>]|\[\])/)
@@ -846,15 +2809,7 @@ class UmajinExtension {
 					.replace(')', '');
 				fullPath += '#' + section;
 			}
-			const command = isOSX ? 'open' : (isWindows
-				? (`${process.env['SYSTEMROOT']}\\System32\\WindowsPowerShell\\v1.0\\powershell`
-					+ ' -NoProfile'
-					+ ' -NonInteractive'
-					+ ' -ExecutionPolicy'
-					+ ' Bypass'
-					+ ' start')
-				: 'xdg-open');
-			child_process.exec(`${command} "${fullPath}"`);
+			childProcess.exec(`${nativePlatform.open()} "${fullPath}"`);
 
 		}
 	}
@@ -916,11 +2871,11 @@ class BinaryAccumulator {
 }
 
 class NetRequest {
-	public request: debugprotocol.DebugProtocol.Request;
-	public response: debugprotocol.DebugProtocol.Response;
-	private _callback: (response: debugprotocol.DebugProtocol.Response) => void;
+	public request: debugProtocol.DebugProtocol.Request;
+	public response: debugProtocol.DebugProtocol.Response;
+	private _callback: (response: debugProtocol.DebugProtocol.Response) => void;
 
-	public constructor(request: debugprotocol.DebugProtocol.Request, response: debugprotocol.DebugProtocol.Response, callback: (response: debugprotocol.DebugProtocol.Response) => void) {
+	public constructor(request: debugProtocol.DebugProtocol.Request, response: debugProtocol.DebugProtocol.Response, callback: (response: debugProtocol.DebugProtocol.Response) => void) {
 		this.request = request;
 		this.response = response;
 		this._callback = callback;
@@ -946,15 +2901,15 @@ type NetRequestMap = {
 	[key: string]: NetRequest;
 };
 
-class UmajinDebugSession extends debugadapter.LoggingDebugSession {
+class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 	private _wsPath: string;
 	private _collapseLongMessages: boolean;
 
-	private _child: child_process.ChildProcess | null;
+	private _child: childProcess.ChildProcess | null;
 
 	private _stdoutTail: string = '';
 	private _stderrTail: string = '';
-	private _lastCompilerOutputEvent?: debugprotocol.DebugProtocol.OutputEvent = undefined;
+	private _lastCompilerOutputEvent?: debugProtocol.DebugProtocol.OutputEvent = undefined;
 
 	private _reLogMessage: RegExp = new RegExp('');
 
@@ -992,7 +2947,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	// eslint-disable-next-line @typescript-eslint/naming-convention
 	private static readonly _EIDPortMessage: string = "Embedded Intrusive Debugger port: ";
 
-	private static readonly _specialArgs: Set<string> = new Set<string>(['--log-output', '--log-level', '-L', '--log-format', '-F', '--script', '--colorise-log', '-C', '--target', '--print-llvm-ir', '-o', '--generate-debug-code', '-d']);
+	private static readonly _specialArgs = new Set<string>(['--log-output', '--log-level', '-L', '--log-format', '-F', '--script', '--colorise-log', '-C', '--target', '--print-llvm-ir', '-o', '--generate-debug-code', '-d']);
 
 
 	public constructor() {
@@ -1008,26 +2963,22 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		this.setDebuggerColumnsStartAt1(true);
 	}
 
-	override sendEvent(event: debugprotocol.DebugProtocol.Event): void {
+	override sendEvent(event: debugProtocol.DebugProtocol.Event): void {
 		super.sendEvent(event);
 	}
 
-	override sendResponse(response: debugprotocol.DebugProtocol.Response): void {
+	override sendResponse(response: debugProtocol.DebugProtocol.Response): void {
 		super.sendResponse(response);
 	}
 
-	protected override initializeRequest(response: debugprotocol.DebugProtocol.InitializeResponse, args: debugprotocol.DebugProtocol.InitializeRequestArguments): void {
+	protected override initializeRequest(response: debugProtocol.DebugProtocol.InitializeResponse, args: debugProtocol.DebugProtocol.InitializeRequestArguments): void {
 		const ui: string = umajin!.getUI();
 		const useGui: boolean = ui === "GUI";
 		const simulateCompiler: string = umajin!.getSimulateCompiler();
 		const simulatePlatform: string = umajin!.getSimulatePlatform();
 		const useJit: boolean =
 			(simulateCompiler === 'JIT') &&
-			((simulatePlatform === 'native') ||
-				(simulatePlatform ===
-					(isWindows ? 'win32' :
-						(isOSX ? 'osx' :
-							(isLinux ? 'linux' : 'native')))));
+			((simulatePlatform === 'native') || (simulatePlatform === nativePlatform.nameForCompiler));
 
 		const program: string = useJit ? (useGui ? umajin!.getUmajinGuiFullPath() : umajin!.getUmajinCliFullPath()) : umajin!.getUmajincFullPath();
 
@@ -1035,11 +2986,10 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 
 		if (useJit) {
 			// check version
-			const options: child_process.SpawnSyncOptionsWithStringEncoding = {
+			const versionCheck: childProcess.SpawnSyncReturns<string> = childProcess.spawnSync(program, ['--version'], {
 				cwd: this._wsPath,
 				encoding: 'utf8'
-			};
-			const versionCheck: child_process.SpawnSyncReturns<string> = child_process.spawnSync(program, ['--version'], options);
+			});
 			if (!versionCheck.error && versionCheck.status === 0) {
 				const versionLines: string[] = (versionCheck.stdout + '\n' + versionCheck.stderr).split(/\r?\n/).filter((line) => line.startsWith("Version "));
 				if (versionLines.length === 1) {
@@ -1052,11 +3002,10 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 			}
 			if (this._hasDebugger) {
 				// get capabilities
-				const options: child_process.SpawnSyncOptionsWithStringEncoding = {
+				const capabilitiesCheck: childProcess.SpawnSyncReturns<string> = childProcess.spawnSync(program, ['--debugging-capabilities'], {
 					cwd: this._wsPath,
 					encoding: 'utf8'
-				};
-				const capabilitiesCheck: child_process.SpawnSyncReturns<string> = child_process.spawnSync(program, ['--debugging-capabilities'], options);
+				});
 				if (!capabilitiesCheck.error && capabilitiesCheck.status === 0) {
 					response.body = jsonParse((!!capabilitiesCheck.stdout.length) ? capabilitiesCheck.stdout : capabilitiesCheck.stderr);
 					response.body!.supportsTerminateRequest = true;
@@ -1075,7 +3024,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 
 		this.sendResponse(response);
 
-		this.sendEvent(new debugadapter.InitializedEvent());
+		this.sendEvent(new debugAdapter.InitializedEvent());
 	}
 
 	private _createDebugger() {
@@ -1089,7 +3038,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 				uds._debuggerConnected = false;
 			})
 			.on('ready', () => {
-				let aLocalCopy: NetRequestList = uds._sendOnConnect;
+				const aLocalCopy: NetRequestList = uds._sendOnConnect;
 				uds._sendOnConnect = [];
 				aLocalCopy.forEach((value: NetRequest) => {
 					uds._sendToDebugger(value);
@@ -1100,7 +3049,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 			});
 	}
 
-	protected override disconnectRequest(response: debugprotocol.DebugProtocol.DisconnectResponse, args: debugprotocol.DebugProtocol.DisconnectArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override disconnectRequest(response: debugProtocol.DebugProtocol.DisconnectResponse, args: debugProtocol.DebugProtocol.DisconnectArguments, request?: debugProtocol.DebugProtocol.Request) {
 		if (args) {
 			if (args.terminateDebuggee) {
 				if (this._child) {
@@ -1111,8 +3060,8 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		this.sendResponse(response);
 	}
 
-	protected override async launchRequest(response: debugprotocol.DebugProtocol.LaunchResponse, launchRequestArgs: ILaunchRequestArguments, request?: debugprotocol.DebugProtocol.Request) {
-		debugadapter.logger.setup(debugadapter.Logger.LogLevel.Verbose, false, false);
+	protected override async launchRequest(response: debugProtocol.DebugProtocol.LaunchResponse, launchRequestArgs: ILaunchRequestArguments, request?: debugProtocol.DebugProtocol.Request) {
+		debugAdapter.logger.setup(debugAdapter.Logger.LogLevel.Verbose, false, false);
 
 		const uds: UmajinDebugSession = this;
 		this._wsPath = umajin!.getWsPath();
@@ -1122,11 +3071,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		const simulatePlatform: string = umajin!.getSimulatePlatform();
 		const useJit: boolean =
 			(simulateCompiler === 'JIT') &&
-			((simulatePlatform === 'native') ||
-				(simulatePlatform ===
-					(isWindows ? 'win32' :
-						(isOSX ? 'osx' :
-							(isLinux ? 'linux' : 'native')))));
+			((simulatePlatform === 'native') || (simulatePlatform === nativePlatform.nameForCompiler));
 
 		let useGui: boolean = ui === "GUI";
 		if (launchRequestArgs.overrideUI !== undefined) {
@@ -1196,12 +3141,16 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 				case 'native':
 					break;
 
-				case 'win32':
+				case 'windows':
 					programArgs = programArgs.concat(['--target=x86_64-pc-windows-msvc']);
 					break;
 
-				case 'osx':
+				case 'mac-x86_64':
 					programArgs = programArgs.concat(['--target=x86_64-apple-darwin']);
+					break;
+
+				case 'mac-arm64':
+					programArgs = programArgs.concat(['--target=arm64-apple-darwin']);
 					break;
 
 				case 'ios':
@@ -1212,8 +3161,12 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 					programArgs = programArgs.concat(['--target=aarch64-linux-android']);
 					break;
 
-				case 'linux':
+				case 'linux-x86_64':
 					programArgs = programArgs.concat(['--target=x86_64-unknown-linux-gnu']);
+					break;
+
+				case 'linux-aarch64':
+					programArgs = programArgs.concat(['--target=aarch64-unknown-linux-gnu']);
 					break;
 			}
 			programArgs = programArgs.concat(['--print-llvm-ir=none:']);
@@ -1233,13 +3186,13 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 					const argKey = match[1]!;
 					if (UmajinDebugSession._specialArgs.has(argKey)) {
 						{
-							const event: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(
+							const event: debugProtocol.DebugProtocol.OutputEvent = new debugAdapter.OutputEvent(
 								`Umajin arguments error: argument "${argKey}" cannot be used in launch configuration\n`,
 								'console');
 							uds.sendEvent(event);
 						}
 
-						uds.sendEvent(new debugadapter.TerminatedEvent());
+						uds.sendEvent(new debugAdapter.TerminatedEvent());
 
 						this._child = null;
 
@@ -1257,37 +3210,36 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 
 		}
 		{
-			const e: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(`Launching '${program} ${programArgs.join(' ')}'  ...\n`, 'console');
+			const e: debugProtocol.DebugProtocol.OutputEvent = new debugAdapter.OutputEvent(`Launching '${program} ${programArgs.join(' ')}'  ...\n`, 'console');
 			this.sendEvent(e);
 		}
 
-		const options: child_process.SpawnOptionsWithStdioTuple<child_process.StdioNull, child_process.StdioPipe, child_process.StdioPipe> = {
+		const child = childProcess.spawn(program, programArgs, {
 			detached: true,
 			cwd: this._wsPath,
 			stdio: ['ignore', 'pipe', 'pipe']
-		};
-		const child = child_process.spawn(program, programArgs, options)
+		})
 			.on('error', (err: Error) => {
-				const event: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(
+				const event: debugProtocol.DebugProtocol.OutputEvent = new debugAdapter.OutputEvent(
 					`Umajin launch error: ${err}\n`,
 					'console');
 				uds.sendEvent(event);
 
-				uds.sendEvent(new debugadapter.TerminatedEvent());
+				uds.sendEvent(new debugAdapter.TerminatedEvent());
 
 				this._child = null;
 			})
 			.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
-				const event: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(
+				const event: debugProtocol.DebugProtocol.OutputEvent = new debugAdapter.OutputEvent(
 					(signal !== null) ?
 						`Umajin exited with code ${code}, signal ${signal}\n` :
 						`Umajin exited with code ${code}\n`,
 					'console');
 				uds.sendEvent(event);
 				if (code !== null) {
-					uds.sendEvent(new debugadapter.ExitedEvent(code));
+					uds.sendEvent(new debugAdapter.ExitedEvent(code));
 				}
-				uds.sendEvent(new debugadapter.TerminatedEvent());
+				uds.sendEvent(new debugAdapter.TerminatedEvent());
 
 				this._child = null;
 			});
@@ -1307,7 +3259,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		this.sendResponse(response);
 	}
 
-	protected override async attachRequest(response: debugprotocol.DebugProtocol.AttachResponse, attachRequestArgs: IAttachRequestArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async attachRequest(response: debugProtocol.DebugProtocol.AttachResponse, attachRequestArgs: IAttachRequestArguments, request?: debugProtocol.DebugProtocol.Request) {
 		const uds: UmajinDebugSession = this;
 
 		this._netLogStream = attachRequestArgs.logStream;
@@ -1336,7 +3288,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 							uds._logSyncing = false;
 						}
 						else {
-							for (let i = 0; i < data.length; i++) {
+							for (let i: number = 0; i < data.length; i++) {
 								if (data[i]! >= 0x20 || data[i] === 0x09 /* tab */ || data[i] === 0x0a /* lf */ || data[i] === 0x0d /* cr */) {
 									uds._logSyncingPrintables++;
 								}
@@ -1365,157 +3317,157 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		this.sendResponse(response);
 	}
 
-	protected override async terminateRequest(response: debugprotocol.DebugProtocol.TerminateResponse, args: debugprotocol.DebugProtocol.TerminateArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async terminateRequest(response: debugProtocol.DebugProtocol.TerminateResponse, args: debugProtocol.DebugProtocol.TerminateArguments, request?: debugProtocol.DebugProtocol.Request) {
 		if (this._child) {
 			this._child.kill();
 		}
 		this.sendResponse(response);
 	}
 
-	protected override async restartRequest(response: debugprotocol.DebugProtocol.RestartResponse, args: debugprotocol.DebugProtocol.RestartArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async restartRequest(response: debugProtocol.DebugProtocol.RestartResponse, args: debugProtocol.DebugProtocol.RestartArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async setBreakPointsRequest(response: debugprotocol.DebugProtocol.SetBreakpointsResponse, args: debugprotocol.DebugProtocol.SetBreakpointsArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async setBreakPointsRequest(response: debugProtocol.DebugProtocol.SetBreakpointsResponse, args: debugProtocol.DebugProtocol.SetBreakpointsArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async setFunctionBreakPointsRequest(response: debugprotocol.DebugProtocol.SetFunctionBreakpointsResponse, args: debugprotocol.DebugProtocol.SetFunctionBreakpointsArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async setFunctionBreakPointsRequest(response: debugProtocol.DebugProtocol.SetFunctionBreakpointsResponse, args: debugProtocol.DebugProtocol.SetFunctionBreakpointsArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async setExceptionBreakPointsRequest(response: debugprotocol.DebugProtocol.SetExceptionBreakpointsResponse, args: debugprotocol.DebugProtocol.SetExceptionBreakpointsArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async setExceptionBreakPointsRequest(response: debugProtocol.DebugProtocol.SetExceptionBreakpointsResponse, args: debugProtocol.DebugProtocol.SetExceptionBreakpointsArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async configurationDoneRequest(response: debugprotocol.DebugProtocol.ConfigurationDoneResponse, args: debugprotocol.DebugProtocol.ConfigurationDoneArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async configurationDoneRequest(response: debugProtocol.DebugProtocol.ConfigurationDoneResponse, args: debugProtocol.DebugProtocol.ConfigurationDoneArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async continueRequest(response: debugprotocol.DebugProtocol.ContinueResponse, args: debugprotocol.DebugProtocol.ContinueArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async continueRequest(response: debugProtocol.DebugProtocol.ContinueResponse, args: debugProtocol.DebugProtocol.ContinueArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async nextRequest(response: debugprotocol.DebugProtocol.NextResponse, args: debugprotocol.DebugProtocol.NextArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async nextRequest(response: debugProtocol.DebugProtocol.NextResponse, args: debugProtocol.DebugProtocol.NextArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async stepInRequest(response: debugprotocol.DebugProtocol.StepInResponse, args: debugprotocol.DebugProtocol.StepInArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async stepInRequest(response: debugProtocol.DebugProtocol.StepInResponse, args: debugProtocol.DebugProtocol.StepInArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async stepOutRequest(response: debugprotocol.DebugProtocol.StepOutResponse, args: debugprotocol.DebugProtocol.StepOutArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async stepOutRequest(response: debugProtocol.DebugProtocol.StepOutResponse, args: debugProtocol.DebugProtocol.StepOutArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async stepBackRequest(response: debugprotocol.DebugProtocol.StepBackResponse, args: debugprotocol.DebugProtocol.StepBackArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async stepBackRequest(response: debugProtocol.DebugProtocol.StepBackResponse, args: debugProtocol.DebugProtocol.StepBackArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async reverseContinueRequest(response: debugprotocol.DebugProtocol.ReverseContinueResponse, args: debugprotocol.DebugProtocol.ReverseContinueArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async reverseContinueRequest(response: debugProtocol.DebugProtocol.ReverseContinueResponse, args: debugProtocol.DebugProtocol.ReverseContinueArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async restartFrameRequest(response: debugprotocol.DebugProtocol.RestartFrameResponse, args: debugprotocol.DebugProtocol.RestartFrameArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async restartFrameRequest(response: debugProtocol.DebugProtocol.RestartFrameResponse, args: debugProtocol.DebugProtocol.RestartFrameArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async gotoRequest(response: debugprotocol.DebugProtocol.GotoResponse, args: debugprotocol.DebugProtocol.GotoArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async gotoRequest(response: debugProtocol.DebugProtocol.GotoResponse, args: debugProtocol.DebugProtocol.GotoArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async pauseRequest(response: debugprotocol.DebugProtocol.PauseResponse, args: debugprotocol.DebugProtocol.PauseArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async pauseRequest(response: debugProtocol.DebugProtocol.PauseResponse, args: debugProtocol.DebugProtocol.PauseArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async sourceRequest(response: debugprotocol.DebugProtocol.SourceResponse, args: debugprotocol.DebugProtocol.SourceArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async sourceRequest(response: debugProtocol.DebugProtocol.SourceResponse, args: debugProtocol.DebugProtocol.SourceArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async threadsRequest(response: debugprotocol.DebugProtocol.ThreadsResponse, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async threadsRequest(response: debugProtocol.DebugProtocol.ThreadsResponse, request?: debugProtocol.DebugProtocol.Request) {
 		if (this._child || this._debuggerConnected) {
 			response.body = { threads: [{ id: 0, name: 'Umajin' }] };
 		}
 		this.sendResponse(response);
 	}
 
-	protected override async terminateThreadsRequest(response: debugprotocol.DebugProtocol.TerminateThreadsResponse, args: debugprotocol.DebugProtocol.TerminateThreadsArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async terminateThreadsRequest(response: debugProtocol.DebugProtocol.TerminateThreadsResponse, args: debugProtocol.DebugProtocol.TerminateThreadsArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async stackTraceRequest(response: debugprotocol.DebugProtocol.StackTraceResponse, args: debugprotocol.DebugProtocol.StackTraceArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async stackTraceRequest(response: debugProtocol.DebugProtocol.StackTraceResponse, args: debugProtocol.DebugProtocol.StackTraceArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async scopesRequest(response: debugprotocol.DebugProtocol.ScopesResponse, args: debugprotocol.DebugProtocol.ScopesArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async scopesRequest(response: debugProtocol.DebugProtocol.ScopesResponse, args: debugProtocol.DebugProtocol.ScopesArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async variablesRequest(response: debugprotocol.DebugProtocol.VariablesResponse, args: debugprotocol.DebugProtocol.VariablesArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async variablesRequest(response: debugProtocol.DebugProtocol.VariablesResponse, args: debugProtocol.DebugProtocol.VariablesArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async setVariableRequest(response: debugprotocol.DebugProtocol.SetVariableResponse, args: debugprotocol.DebugProtocol.SetVariableArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async setVariableRequest(response: debugProtocol.DebugProtocol.SetVariableResponse, args: debugProtocol.DebugProtocol.SetVariableArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async setExpressionRequest(response: debugprotocol.DebugProtocol.SetExpressionResponse, args: debugprotocol.DebugProtocol.SetExpressionArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async setExpressionRequest(response: debugProtocol.DebugProtocol.SetExpressionResponse, args: debugProtocol.DebugProtocol.SetExpressionArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async evaluateRequest(response: debugprotocol.DebugProtocol.EvaluateResponse, args: debugprotocol.DebugProtocol.EvaluateArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async evaluateRequest(response: debugProtocol.DebugProtocol.EvaluateResponse, args: debugProtocol.DebugProtocol.EvaluateArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async stepInTargetsRequest(response: debugprotocol.DebugProtocol.StepInTargetsResponse, args: debugprotocol.DebugProtocol.StepInTargetsArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async stepInTargetsRequest(response: debugProtocol.DebugProtocol.StepInTargetsResponse, args: debugProtocol.DebugProtocol.StepInTargetsArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async gotoTargetsRequest(response: debugprotocol.DebugProtocol.GotoTargetsResponse, args: debugprotocol.DebugProtocol.GotoTargetsArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async gotoTargetsRequest(response: debugProtocol.DebugProtocol.GotoTargetsResponse, args: debugProtocol.DebugProtocol.GotoTargetsArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async completionsRequest(response: debugprotocol.DebugProtocol.CompletionsResponse, args: debugprotocol.DebugProtocol.CompletionsArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async completionsRequest(response: debugProtocol.DebugProtocol.CompletionsResponse, args: debugProtocol.DebugProtocol.CompletionsArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async exceptionInfoRequest(response: debugprotocol.DebugProtocol.ExceptionInfoResponse, args: debugprotocol.DebugProtocol.ExceptionInfoArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async exceptionInfoRequest(response: debugProtocol.DebugProtocol.ExceptionInfoResponse, args: debugProtocol.DebugProtocol.ExceptionInfoArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async loadedSourcesRequest(response: debugprotocol.DebugProtocol.LoadedSourcesResponse, args: debugprotocol.DebugProtocol.LoadedSourcesArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async loadedSourcesRequest(response: debugProtocol.DebugProtocol.LoadedSourcesResponse, args: debugProtocol.DebugProtocol.LoadedSourcesArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async dataBreakpointInfoRequest(response: debugprotocol.DebugProtocol.DataBreakpointInfoResponse, args: debugprotocol.DebugProtocol.DataBreakpointInfoArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async dataBreakpointInfoRequest(response: debugProtocol.DebugProtocol.DataBreakpointInfoResponse, args: debugProtocol.DebugProtocol.DataBreakpointInfoArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async setDataBreakpointsRequest(response: debugprotocol.DebugProtocol.SetDataBreakpointsResponse, args: debugprotocol.DebugProtocol.SetDataBreakpointsArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async setDataBreakpointsRequest(response: debugProtocol.DebugProtocol.SetDataBreakpointsResponse, args: debugProtocol.DebugProtocol.SetDataBreakpointsArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async readMemoryRequest(response: debugprotocol.DebugProtocol.ReadMemoryResponse, args: debugprotocol.DebugProtocol.ReadMemoryArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async readMemoryRequest(response: debugProtocol.DebugProtocol.ReadMemoryResponse, args: debugProtocol.DebugProtocol.ReadMemoryArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async writeMemoryRequest(response: debugprotocol.DebugProtocol.WriteMemoryResponse, args: debugprotocol.DebugProtocol.WriteMemoryArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async writeMemoryRequest(response: debugProtocol.DebugProtocol.WriteMemoryResponse, args: debugProtocol.DebugProtocol.WriteMemoryArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async disassembleRequest(response: debugprotocol.DebugProtocol.DisassembleResponse, args: debugprotocol.DebugProtocol.DisassembleArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async disassembleRequest(response: debugProtocol.DebugProtocol.DisassembleResponse, args: debugProtocol.DebugProtocol.DisassembleArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async cancelRequest(response: debugprotocol.DebugProtocol.CancelResponse, args: debugprotocol.DebugProtocol.CancelArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async cancelRequest(response: debugProtocol.DebugProtocol.CancelResponse, args: debugProtocol.DebugProtocol.CancelArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this.sendResponse(response);
 	}
 
-	protected override async breakpointLocationsRequest(response: debugprotocol.DebugProtocol.BreakpointLocationsResponse, args: debugprotocol.DebugProtocol.BreakpointLocationsArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async breakpointLocationsRequest(response: debugProtocol.DebugProtocol.BreakpointLocationsResponse, args: debugProtocol.DebugProtocol.BreakpointLocationsArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
-	protected override async setInstructionBreakpointsRequest(response: debugprotocol.DebugProtocol.SetInstructionBreakpointsResponse, args: debugprotocol.DebugProtocol.SetInstructionBreakpointsArguments, request?: debugprotocol.DebugProtocol.Request) {
+	protected override async setInstructionBreakpointsRequest(response: debugProtocol.DebugProtocol.SetInstructionBreakpointsResponse, args: debugProtocol.DebugProtocol.SetInstructionBreakpointsArguments, request?: debugProtocol.DebugProtocol.Request) {
 		this._redirectToDebugger(response, request);
 	}
 
@@ -1529,7 +3481,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	}
 
 	private _processChunk(chunk: string, stream: string): string {
-		for (let index = chunk.indexOf('\n'); index !== -1; index = chunk.indexOf('\n')) {
+		for (let index: number = chunk.indexOf('\n'); index !== -1; index = chunk.indexOf('\n')) {
 			this._processLine(chunk.substring(0, index), stream);
 			chunk = chunk.substring(index + 1);
 		}
@@ -1537,14 +3489,14 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 	}
 
 	private _processLine(line: string, stream: string) {
-		let event: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent(line + '\n', stream);
+		const event: debugProtocol.DebugProtocol.OutputEvent = new debugAdapter.OutputEvent(line + '\n', stream);
 		let looksLike: 'first' | 'single' | 'extra' = 'single';
 		let emitEnd: boolean = false;
 
 		const match: RegExpMatchArray | null = line.match(this._reLogMessage);
 		if (match !== null) {
 			if (match[UmajinDebugSession._reLogMessageIndexScriptSourceInfo] !== undefined && match[UmajinDebugSession._reLogMessageIndexScriptSourceInfo]!.length > 0) {
-				event.body.source = new debugadapter.Source(match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoFile]!, this.convertDebuggerPathToClient(path.resolve(this._wsPath + path.sep + match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoFile]!)));
+				event.body.source = new debugAdapter.Source(match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoFile]!, this.convertDebuggerPathToClient(path.resolve(this._wsPath + path.sep + match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoFile]!)));
 				event.body.line = this.convertDebuggerLineToClient(parseInt(match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoLine]!));
 				if (match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoColumn] !== undefined) {
 					event.body.column = this.convertDebuggerColumnToClient(parseInt(match[UmajinDebugSession._reLogMessageIndexScriptSourceInfoColumn]!));
@@ -1600,7 +3552,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 
 		if (emitEnd) {
 			// emit 'end' separately with empty output because otherwise it is shown outside
-			const endEvent: debugprotocol.DebugProtocol.OutputEvent = new debugadapter.OutputEvent('', stream);
+			const endEvent: debugProtocol.DebugProtocol.OutputEvent = new debugAdapter.OutputEvent('', stream);
 			endEvent.body.group = 'end';
 			this.sendEvent(endEvent);
 		}
@@ -1658,9 +3610,9 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 		}
 	}
 
-	private _redirectToDebugger(response: debugprotocol.DebugProtocol.Response, request?: debugprotocol.DebugProtocol.Request) {
+	private _redirectToDebugger(response: debugProtocol.DebugProtocol.Response, request?: debugProtocol.DebugProtocol.Request) {
 		if (request) {
-			this._sendToDebugger(new NetRequest(request, response, (response: debugprotocol.DebugProtocol.Response) => {
+			this._sendToDebugger(new NetRequest(request, response, (response: debugProtocol.DebugProtocol.Response) => {
 				this.sendResponse(response);
 			}));
 		}
@@ -1672,7 +3624,7 @@ class UmajinDebugSession extends debugadapter.LoggingDebugSession {
 				// store for reply matching
 				this._sentRequests[request.request.seq] = request;
 				const data: Buffer = Buffer.from(JSON.stringify(request.request), "utf-8");
-				let header: Buffer = Buffer.alloc(4);
+				const header: Buffer = Buffer.alloc(4);
 				header.writeUInt32BE(data.length); // network order
 				this._debugger.write(header);
 				this._debugger.write(data);

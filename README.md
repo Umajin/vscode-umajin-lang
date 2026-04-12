@@ -83,6 +83,8 @@ This extension relies on Umajin Language Server to provide support using an up-t
 
 - Code snippets
 
+- Simple wizard-like engine installation and updating process
+
 ## Settings samples
 
 ### Semantic highlighting
@@ -94,7 +96,7 @@ Make sure you specify colour scheme you are really using. This example uses "Def
 ```json
 {
     "editor.tokenColorCustomizations": {
-        "[Default Light+]": {
+        "[Light+]": {
             "textMateRules": [
                 {
                     "scope": "comment.block",
