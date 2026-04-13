@@ -580,6 +580,7 @@ class EngineUpdateContext {
 	}
 
 	private _scanLocalfiles() {
+		console.log("Engine update step 1: Scan local files");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update: Scanning local files',
@@ -590,7 +591,9 @@ class EngineUpdateContext {
 			});
 
 			return new Promise<void>((resolve, reject) => {
-				const progress = new Progress(vscProgress, () => { this._checkInside(); }, resolve);
+				const progress = new Progress(vscProgress, () => {
+					this._checkInside();
+				}, resolve);
 
 				fs.readdir(this._ext.getWsPath(), { withFileTypes: true }, (errno, files: fs.Dirent[]) => {
 					if (errno !== null) {
@@ -638,6 +641,7 @@ class EngineUpdateContext {
 
 	// check that all binaries are inside the workspace
 	private _checkInside() {
+		console.log("Engine update step 2: Check all the binaries are inside the workspace");
 		let outside: string = '';
 		const wsPath: string = this._ext.getWsPath();
 
@@ -702,6 +706,7 @@ class EngineUpdateContext {
 	}
 
 	private _locateOld() {
+		console.log("Engine update step 3: Locate the old installation");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update: Looking for the old installation',
@@ -712,7 +717,22 @@ class EngineUpdateContext {
 			});
 
 			return new Promise<void>((resolve, _reject) => {
-				const progress = new Progress(vscProgress, () => { this._selectUIs(); }, resolve);
+				const progress = new Progress(vscProgress, () => {
+					// print results:
+					this._presentBinaries.forEach((binaryMap, platformKey) => {
+						binaryMap.forEach((filename, binaryKey) => {
+							console.log(`Found binary ${platformKey} ${binaryKey}: "${filename}"`);
+							this._detectedUIs.add(binaryKey);
+							this._detectedPlatforms.add(platformKey);
+						});
+					});
+					this._presentAssociatedFiles.forEach((filename) => {
+						console.log(`Found an associated file "${filename}"`);
+					});
+
+					// move to the next step:
+					this._selectUIs();
+				}, resolve);
 
 				const associatedFiles = new Set<string>();
 
@@ -902,18 +922,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectUIs() {
-		// print results from the previous step:
-		this._presentBinaries.forEach((binaryMap, platformKey) => {
-			binaryMap.forEach((filename, binaryKey) => {
-				console.log(`Found binary ${platformKey} ${binaryKey}: "${filename}"`);
-				this._detectedUIs.add(binaryKey);
-				this._detectedPlatforms.add(platformKey);
-			});
-		});
-		this._presentAssociatedFiles.forEach((filename) => {
-			console.log(`Found an associated file "${filename}"`);
-		});
-
+		console.log("Engine update step 4: Ask user to select UI");
 
 		const guiItem: EngineUpdateUIItem = new EngineUpdateUIItem(Binary.GUI, 'GUI', '-- Graphical User Interface', '(with a window)');
 		const cliItem: EngineUpdateUIItem = new EngineUpdateUIItem(Binary.CLI, 'CLI', '-- Command Line Interface', '(without a window)');
@@ -961,6 +970,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectDevPlatforms() {
+		console.log("Engine update step 5: Ask user to select Dev platforms");
 		const windowsItem: EngineUpdatePlatformItem = new EngineUpdatePlatformItem(PlatformNameValue.WindowsX64, 'Windows - x86_64', '(Intel/AMD CPUs)', 'x64');
 		const macArm64Item: EngineUpdatePlatformItem = new EngineUpdatePlatformItem(PlatformNameValue.MacArm64, 'Mac - arm64', '(Apple Silicon)', 'arm64');
 		const linuxX64Item: EngineUpdatePlatformItem = new EngineUpdatePlatformItem(PlatformNameValue.LinuxX64, 'Linux - x86_64', '(Intel/AMD CPUs)', 'x64');
@@ -1015,6 +1025,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectSimPlatforms() {
+		console.log("Engine update step 6: Ask user to select Sim platforms");
 		const nativeOnlyItem: EngineUpdateSimulationPlatformItem = new EngineUpdateSimulationPlatformItem(false, 'Native only', '', '');
 		const crossSimItem: EngineUpdateSimulationPlatformItem = new EngineUpdateSimulationPlatformItem(true, 'Cross-platform', '', 'Compilation simulation via umajinc');
 
@@ -1043,6 +1054,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectRunPlatforms() {
+		console.log("Engine update step 7: Ask user to select Run platforms");
 		if (this._selectedDevPlatforms.size === EngineUpdateContext.platforms.size) {
 			this._selectChannel();
 		} else {
@@ -1092,6 +1104,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectChannel() {
+		console.log("Engine update step 8: Ask user to select distribution channel");
 		const channelSelector: vscode.QuickPick<EngineUpdateChannelItem> = vscode.window.createQuickPick<EngineUpdateChannelItem>();
 		channelSelector.title = 'Installing Umajin Engine';
 		channelSelector.step = 5;
@@ -1117,6 +1130,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectSource() {
+		console.log("Engine update step 9: Fetch and parse the distribution channel jobs");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update: Scanning remote jobs',
@@ -1127,7 +1141,9 @@ class EngineUpdateContext {
 			});
 
 			return new Promise<void>((resolve, reject) => {
-				const progress = new Progress(vscProgress, () => { this._selectJobSet(); }, resolve);
+				const progress = new Progress(vscProgress, () => {
+					this._selectJobSet();
+				}, resolve);
 
 				fetch(this._selectedChannel!.url + '/api/json/')
 					.then(
@@ -1303,6 +1319,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectJobSet() {
+		console.log("Engine update step 10: Ask user to select the jobset");
 		const fullSets = new Map<number, Set<string>>();
 		this._zips.forEach((zipsL1, description) => {
 			console.log(`Job description: ${description}`);
@@ -1370,6 +1387,7 @@ class EngineUpdateContext {
 	}
 
 	private _download() {
+		console.log("Engine update step 11: Download the job artifacts");
 		// find if there is going to be any clashes
 		{
 			const allBinaries = new Set<string>();
@@ -1409,7 +1427,9 @@ class EngineUpdateContext {
 			});
 
 			return new Promise<void>((resolve, reject) => {
-				const progress = new Progress(vscProgress, () => { this._deleteOld(); }, resolve);
+				const progress = new Progress(vscProgress, () => {
+					this._deleteOld();
+				}, resolve);
 
 				const selectedDescription: string = this._selectedJobset!.jobDescription;
 
@@ -1480,6 +1500,7 @@ class EngineUpdateContext {
 	}
 
 	private _deleteOld() {
+		console.log("Engine update step 12: Delete the old installation");
 		this._ext.stopLanguageClientImpl().finally(() => {
 			vscode.window.withProgress<void>({
 				location: vscode.ProgressLocation.Notification,
@@ -1491,7 +1512,9 @@ class EngineUpdateContext {
 				});
 
 				return new Promise<void>((resolve, reject) => {
-					const progress = new Progress(vscProgress, () => { this._checkInfrastructure(); }, resolve);
+					const progress = new Progress(vscProgress, () => {
+						this._checkInfrastructure();
+					}, resolve);
 
 					progress.setTotal(((): number => {
 						let remains: number = this._presentAssociatedFiles.size + 1 /* if there are none, proceed to the next step*/;
@@ -1507,7 +1530,7 @@ class EngineUpdateContext {
 						fs.rm(filename, { recursive: true, force: true }, (errno) => {
 							if (errno !== null) {
 								if (attempts !== 0) {
-									console.error('Failed to delete "' + filename + '" at attempt #' + attempts + ': ' + errno);
+									console.error('Failed to delete "' + filename + '" with ' + (attempts - 1) + ' attempts remaining: ' + errno);
 									setTimeout(() => {
 										deleteOld(filename, attempts - 1, delay);
 									}, delay);
@@ -1535,6 +1558,7 @@ class EngineUpdateContext {
 	}
 
 	private _checkInfrastructure() {
+		console.log("Engine update step 13: Check and fix the generated infrastructure");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update (3/4): Checking infrastructure...',
@@ -1544,7 +1568,9 @@ class EngineUpdateContext {
 				console.log("Engine update cancelled - User cancelled checking the infrastructure");
 			});
 			return new Promise<void>((resolve, reject) => {
-				const progress = new Progress(vscProgress, () => { this._installNew(); }, resolve);
+				const progress = new Progress(vscProgress, () => {
+					this._installNew();
+				}, resolve);
 
 				if (this._needPlatformRedirector) {
 					if (this._selectedDevPlatforms.has(PlatformNameValue.MacArm64) ||
@@ -1809,6 +1835,7 @@ class EngineUpdateContext {
 	}
 
 	private _installNew() {
+		console.log("Engine update step 14: Unpack the artifacts");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update (4/4): Unpacking artifacts...',
@@ -1821,7 +1848,9 @@ class EngineUpdateContext {
 			vscProgress.report({ increment: 0 });
 
 			return new Promise<void>((resolve, reject) => {
-				const progress = new Progress(vscProgress, () => { this._cleanUp(); }, resolve);
+				const progress = new Progress(vscProgress, () => {
+					this._cleanUp();
+				}, resolve);
 
 				const selectedDescription: string = this._selectedJobset!.jobDescription;
 
@@ -2017,6 +2046,7 @@ class EngineUpdateContext {
 	}
 
 	private _cleanUp() {
+		console.log("Engine update step 15: Clean up the cache");
 		fs.rm(this._cacheFolder(), { recursive: true, force: true }, (errno) => {
 			if (errno !== null) {
 				console.error('Failed to delete engine update cache folder: ', errno);
@@ -2027,6 +2057,7 @@ class EngineUpdateContext {
 	}
 
 	private _generateStdlib() {
+		console.log("Engine update step 16: Generate stdlib.u");
 		if (this._selectedDevPlatforms.has(nativePlatform.nameForCompiler) || this._selectedRunPlatforms.has(nativePlatform.nameForCompiler)) {
 			this._ext.generateStdLibTry(this._selectedUIs.has(Binary.GUI), this._selectedUIs.has(Binary.CLI), (_success) => {
 				this._reportUpdateComplete();
@@ -2038,6 +2069,7 @@ class EngineUpdateContext {
 	}
 
 	private _reportUpdateComplete() {
+		console.log("Engine update step 17: Report the completion to user");
 		if (this._selectedDevPlatforms.has(nativePlatform.nameForCompiler)) {
 			this._ext.startLanguageClientImpl();
 		} else {
@@ -2208,68 +2240,86 @@ class UmajinExtension {
 
 	private _generateStdLibTryUI(umajinJitFullPath: string, callback: (success: boolean) => void, attempts: number = 5, delay: number = 1000) {
 		if (attempts === 0) {
+			console.log('Will not generate stdlib.u using "' + umajinJitFullPath + '", no attempts remaining');
 			callback(false);
 		} else {
+			console.log('Generating stdlib.u using "' + umajinJitFullPath + '", attempts remaining: ' + attempts + ', checking the access...');
 			fs.access(umajinJitFullPath, fs.constants.R_OK | fs.constants.X_OK, (errno) => {
-			if (errno != null) {
-				console.error(`Cannot check "execute" access of "${umajinJitFullPath}": `, errno);
-				callback(false);
-			} else {
-				const child = childProcess.spawn(umajinJitFullPath, ['--print-stdlib'], {
-					cwd: this._wsPath,
-					stdio: ['ignore', 'pipe', 'pipe']
-				},)
-					.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
-						if (signal === null && code !== null) {
-							switch (code) {
-								case 0:
-								case 2: // old expected status code of --print-stdlib
-									callback(true);
-									return;
+				if (errno != null) {
+					console.error(`Cannot check "read+execute" access of "${umajinJitFullPath}": `, errno);
+					callback(false);
+				} else {
+					let exited: boolean = false;
+					console.log('Read and execute access confirmed, spawning the child process...');
+					try {
+						const child = childProcess.spawn(umajinJitFullPath, ['--print-stdlib'], {
+							cwd: this._wsPath,
+							stdio: ['ignore', 'pipe', 'pipe']
+						},)
+							.on('exit', () => {
+								console.log('Child process exited, waiting for streams to be closed...');
+								exited = true;
+							})
+							.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
+								console.log('Child process closed streams, checking the exit code...');
+								if (exited) {
+									if (signal === null && code !== null) {
+										switch (code) {
+											case 0:
+											case 2: // old expected status code of --print-stdlib
+												console.log('Exit code is good, stdlib.u generated');
+												callback(true);
+												return;
 
-								case 126: // text file busy
-										setTimeout(() => {
-											this._generateStdLibTryUI(umajinJitFullPath, callback, attempts - 1, delay);
-										}, delay);
-									return;
-							}
-						}
+											case 126: // text file busy
+												console.log('Child process reports "text file busy", trying again in ' + delay + 'ms...');
+												setTimeout(() => {
+													this._generateStdLibTryUI(umajinJitFullPath, callback, attempts - 1, delay);
+												}, delay);
+												return;
+										}
+									}
 
-						let info: string = '';
-						if (code !== null) {
-							info += ' exit code: ' + code;
-						}
-						if (signal !== null) {
-							info += ' signal: ' + signal;
-						}
-						const stdout: Buffer | null = child.stdout.read();
-						if (stdout !== null) {
-							info += ' stdout: "' + stdout.toString() + '"';
-						}
-						const stderr: Buffer | null = child.stderr.read();
-						if (stderr !== null) {
-							info += ' stderr: "' + stderr.toString() + '"';
-						}
-						console.error('Cannot generate Umajin Standard Library using "' + umajinJitFullPath + '":' + info);
-						callback(false);
-					})
-					.on('error', (err: Error) => {
-						reportFailure('Cannot generate Umajin Standard Library using "' + umajinJitFullPath + '": ' + err);
-						callback(false);
-					});
+									let info: string = '';
+									if (code !== null) {
+										info += ' exit code: ' + code;
+									}
+									if (signal !== null) {
+										info += ' signal: ' + signal;
+									}
+									const stdout: Buffer | null = child.stdout.read();
+									if (stdout !== null) {
+										info += ' stdout: "' + stdout.toString() + '"';
+									}
+									const stderr: Buffer | null = child.stderr.read();
+									if (stderr !== null) {
+										info += ' stderr: "' + stderr.toString() + '"';
+									}
+									console.error('Cannot generate Umajin Standard Library using "' + umajinJitFullPath + '":' + info);
+									callback(false);
+								}
+							})
+							.on('error', (err: Error) => {
+								console.log('Child process errored');
+								reportFailure('Cannot generate Umajin Standard Library using "' + umajinJitFullPath + '": ' + err);
+								callback(false);
+							});
+						console.log('Child process spawned.');
 					} catch (reason: any) {
 						if (reason.code === 'EBUSY') {
+							console.log('Child process fails to spawn throwing "EBUSY" exception, trying again in ' + delay + 'ms...');
 							setTimeout(() => {
 								this._generateStdLibTryUI(umajinJitFullPath, callback, attempts - 1, delay);
 							}, delay);
 						}
 						else {
+							console.log('Child process spawn thrown an exception');
 							reportFailure('Cannot generate Umajin Standard Library using "' + umajinJitFullPath + '": ' + reason);
 							callback(false);
 						}
 					}
-			}
-		});
+				}
+			});
 		}
 	}
 
