@@ -639,7 +639,7 @@ class EngineUpdateContext {
 	// check that all binaries are inside the workspace
 	private _checkInside() {
 		let outside: string = '';
-		const wsPath: string = this._ext.getWsPath()
+		const wsPath: string = this._ext.getWsPath();
 
 		EngineUpdateContext.allBinaries.forEach((binaryValue) => {
 			const platforms = new Set<PlatformName>();
@@ -728,11 +728,11 @@ class EngineUpdateContext {
 					const binaryMap: Map<Binary, string> = this._presentBinaries.get(platformName)!;
 					binaryMap.set(binary, filename);
 					this._presentBinaries.set(platformName, binaryMap);
-				}
+				};
 
 				const markArtifactPresent = (filename: string) => {
 					this._presentAssociatedFiles.add(filename);
-				}
+				};
 
 				progress.setTotal(
 					// all binaries
@@ -927,7 +927,7 @@ class EngineUpdateContext {
 		}
 
 		const uiSelector: vscode.QuickPick<EngineUpdateUIItem> = vscode.window.createQuickPick<EngineUpdateUIItem>();
-		uiSelector.title = 'Installing Umajin Engine'
+		uiSelector.title = 'Installing Umajin Engine';
 		uiSelector.step = 1;
 		uiSelector.totalSteps = 6;
 		uiSelector.prompt = 'Choose at least one interface to install';
@@ -981,7 +981,7 @@ class EngineUpdateContext {
 		}
 
 		const devPlatformSelector: vscode.QuickPick<EngineUpdatePlatformItem> = vscode.window.createQuickPick<EngineUpdatePlatformItem>();
-		devPlatformSelector.title = 'Installing Umajin Engine'
+		devPlatformSelector.title = 'Installing Umajin Engine';
 		devPlatformSelector.step = 2;
 		devPlatformSelector.totalSteps = 6;
 		devPlatformSelector.prompt = 'Choose at least one platform for development';
@@ -1019,7 +1019,7 @@ class EngineUpdateContext {
 		const crossSimItem: EngineUpdateSimulationPlatformItem = new EngineUpdateSimulationPlatformItem(true, 'Cross-platform', '', 'Compilation simulation via umajinc');
 
 		const simPlatformSelector: vscode.QuickPick<EngineUpdateSimulationPlatformItem> = vscode.window.createQuickPick<EngineUpdateSimulationPlatformItem>();
-		simPlatformSelector.title = 'Installing Umajin Engine'
+		simPlatformSelector.title = 'Installing Umajin Engine';
 		simPlatformSelector.step = 3;
 		simPlatformSelector.totalSteps = 6;
 		simPlatformSelector.prompt = 'Select compilation simulation support';
@@ -1066,7 +1066,7 @@ class EngineUpdateContext {
 			});
 
 			const runPlatformSelector: vscode.QuickPick<EngineUpdatePlatformItem> = vscode.window.createQuickPick<EngineUpdatePlatformItem>();
-			runPlatformSelector.title = 'Installing Umajin Engine'
+			runPlatformSelector.title = 'Installing Umajin Engine';
 			runPlatformSelector.step = 4;
 			runPlatformSelector.totalSteps = 6;
 			runPlatformSelector.prompt = 'Choose platforms for launching only (can be none)';
@@ -1093,7 +1093,7 @@ class EngineUpdateContext {
 
 	private _selectChannel() {
 		const channelSelector: vscode.QuickPick<EngineUpdateChannelItem> = vscode.window.createQuickPick<EngineUpdateChannelItem>();
-		channelSelector.title = 'Installing Umajin Engine'
+		channelSelector.title = 'Installing Umajin Engine';
 		channelSelector.step = 5;
 		channelSelector.totalSteps = 6;
 		channelSelector.prompt = 'Select distribution channel';
@@ -1347,7 +1347,7 @@ class EngineUpdateContext {
 			vscode.window.showErrorMessage('Could not find a full set of required artifacts');
 		} else {
 			const buildSelector: vscode.QuickPick<EngineUpdateJobsetItem> = vscode.window.createQuickPick<EngineUpdateJobsetItem>();
-			buildSelector.title = 'Installing Umajin Engine'
+			buildSelector.title = 'Installing Umajin Engine';
 			buildSelector.step = 6;
 			buildSelector.totalSteps = 6;
 			buildSelector.prompt = 'Select build';
@@ -1380,7 +1380,7 @@ class EngineUpdateContext {
 				} else {
 					allBinaries.add(filename);
 				}
-			}
+			};
 			this._selectedDevPlatforms.forEach((platformName) => {
 				const platform: Platform = EngineUpdateContext.platforms.get(platformName)!;
 				addBinary(platform, Binary.LS);
@@ -1501,12 +1501,19 @@ class EngineUpdateContext {
 						return remains;
 					})());
 
-					const deleteOld = (filename: string) => {
-						console.log(`Deleting "${filename}"`)
+					const deleteOld = (filename: string, attempts: number = 5, delay: number = 500) => {
+						console.log(`Deleting "${filename}"`);
 
 						fs.rm(filename, { recursive: true, force: true }, (errno) => {
 							if (errno !== null) {
-								reportFailureAndReject(reject, 'Failed to delete "' + filename + '": ' + errno);
+								if (attempts !== 0) {
+									console.error('Failed to delete "' + filename + '" at attempt #' + attempts + ': ' + errno);
+									setTimeout(() => {
+										deleteOld(filename, attempts - 1, delay);
+									}, delay);
+								} else {
+									reportFailureAndReject(reject, 'Failed to delete "' + filename + '": ' + errno);
+								}
 							} else {
 								progress.partFinished();
 							}
@@ -2617,13 +2624,17 @@ class UmajinExtension {
 
 	public stopLanguageClientImpl(): Promise<boolean> {
 		return new Promise<boolean>((resolve, reject) => {
+			console.log('Stopping language client...');
 			if (this._languageClient) {
 				this._languageClient.stop().then(() => {
+					console.log('Language client stopped');
 					this._deleteLanguageClient();
 					resolve(false);
 				}, (reason) => {
+					console.log('Failed to stop the Language client: ' + reason);
 					reject(reason);
 				}).catch((reason) => {
+					console.log('Exception caught while trying to stop the Language client: ' + reason);
 					reject(reason);
 				});
 			} else {
@@ -2657,6 +2668,7 @@ class UmajinExtension {
 
 	public startLanguageClientImpl(): Promise<boolean> {
 		return new Promise<boolean>((resolve, reject) => {
+			console.log('Starting language client...');
 			if (!this._languageClient) {
 				const serverOptions: languageClient.ServerOptions = {
 					command: (this._languageServerCommand !== '') ? this._languageServerCommand : this._umajinlsFullPath,
@@ -2697,13 +2709,16 @@ class UmajinExtension {
 								}
 							}
 						}
+						console.log('Language client started');
 						resolve(false);
 					}, (reason) => {
+						console.log('Failed to start the Language client: ' + reason);
 						reject(reason);
 					})
 					.catch(error => {
 						console.error(error);
 						this._deleteLanguageClient();
+						console.log('Exception caught while trying to start the Language client: ' + error);
 						reject(error);
 					});
 			} else {
@@ -3213,7 +3228,7 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 
 		if (launchRequestArgs.arguments !== undefined) {
 			for (const arg of launchRequestArgs.arguments!) {
-				const match = arg.match(/^(-(?:(?:-[A-Za-z0-9_]+)+|[A-Za-z]))(?:=.*)?$/)
+				const match = arg.match(/^(-(?:(?:-[A-Za-z0-9_]+)+|[A-Za-z]))(?:=.*)?$/);
 				if (match !== null) {
 					const argKey = match[1]!;
 					if (UmajinDebugSession._specialArgs.has(argKey)) {
