@@ -2207,7 +2207,10 @@ class UmajinExtension {
 	}
 
 	private _generateStdLibTryUI(umajinJitFullPath: string, callback: (success: boolean) => void, attempts: number = 5, delay: number = 1000) {
-		fs.access(umajinJitFullPath, fs.constants.X_OK, (errno) => {
+		if (attempts === 0) {
+			callback(false);
+		} else {
+			fs.access(umajinJitFullPath, fs.constants.R_OK | fs.constants.X_OK, (errno) => {
 			if (errno != null) {
 				console.error(`Cannot check "execute" access of "${umajinJitFullPath}": `, errno);
 				callback(false);
@@ -2225,13 +2228,9 @@ class UmajinExtension {
 									return;
 
 								case 126: // text file busy
-									if (attempts > 1) {
 										setTimeout(() => {
 											this._generateStdLibTryUI(umajinJitFullPath, callback, attempts - 1, delay);
 										}, delay);
-									} else {
-										callback(false);
-									}
 									return;
 							}
 						}
@@ -2258,8 +2257,20 @@ class UmajinExtension {
 						reportFailure('Cannot generate Umajin Standard Library using "' + umajinJitFullPath + '": ' + err);
 						callback(false);
 					});
+					} catch (reason: any) {
+						if (reason.code === 'EBUSY') {
+							setTimeout(() => {
+								this._generateStdLibTryUI(umajinJitFullPath, callback, attempts - 1, delay);
+							}, delay);
+						}
+						else {
+							reportFailure('Cannot generate Umajin Standard Library using "' + umajinJitFullPath + '": ' + reason);
+							callback(false);
+						}
+					}
 			}
 		});
+		}
 	}
 
 	public static generateWorkspace() {
