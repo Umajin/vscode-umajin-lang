@@ -864,7 +864,7 @@
 		"vscode-prepublish-esbuild": "npm run esbuild-package -- --minify",
 		"esbuild": "npm run esbuild-base -- --sourcemap",
 		"esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
-		"esbuild-package": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+		"esbuild-package": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --external:@aws-sdk/client-s3 --format=cjs --platform=node",
 		"vscode-prepublish-webpack": "npm run webpack-package",
 		"webpack": "webpack --mode development",
 		"webpack-watch": "webpack --mode development --watch",
