@@ -17,16 +17,6 @@ import * as languageClient from 'vscode-languageclient/node';
 import * as packageJson from '../package.json';
 
 
-function reportFailure(message: string) {
-	console.error(message);
-	vscode.window.showErrorMessage(message);
-};
-
-function reportFailureAndReject(reject: (reason?: any) => void, message: string) {
-	reportFailure(message);
-	reject(message);
-};
-
 interface ILaunchRequestArguments extends debugProtocol.DebugProtocol.LaunchRequestArguments {
 	arguments?: string[];
 	logFormatEngineSourceInfo?: boolean,
@@ -108,8 +98,8 @@ class Platform {
 		this.redirectionFolder =
 			this.isWindows ?
 				'.' : (
-					this.isMac ? ('Darwin' + path.sep + 'arm64') :
-					/* this.isLinux */ ('Linux' + path.sep + (this.isX64 ? 'x86_64' : 'aarch64')));
+					this.isMac ? (`Darwin${path.sep}arm64`) :
+					/* this.isLinux */ (`Linux${path.sep}${(this.isX64 ? 'x86_64' : 'aarch64')}`));
 	}
 
 	public redirectedPath(filename: string): string {
@@ -130,7 +120,7 @@ class Platform {
 
 	public binInAppName(name: string): string {
 		return this.isMac ?
-			(this.appName(name) + '/Contents/MacOS/' + this.binName(name)) :
+			(`${this.appName(name)}${path.sep}Contents${path.sep}MacOS${path.sep}${this.binName(name)}`) :
 			this.binName(name);
 	};
 
@@ -576,18 +566,18 @@ class EngineUpdateContext {
 	}
 
 	private _cacheFolder(): string {
-		return this._ext.getWsPath() + path.sep + '.vscode' + path.sep + '.umajin-engine-update-cache';
+		return `${this._ext.getWsPath()}${path.sep}.vscode${path.sep}.umajin-engine-update-cache`;
 	}
 
 	private _scanLocalfiles() {
-		console.log("Engine update step 1: Scan local files");
+		this._ext.log("Engine update step 1: Scan local files");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update: Scanning local files',
 			cancellable: true
 		}, (vscProgress, token) => {
 			token.onCancellationRequested(() => {
-				console.log("Engine update cancelled - User cancelled scanning local files");
+				this._ext.log("Engine update cancelled - User cancelled scanning local files");
 			});
 
 			return new Promise<void>((resolve, reject) => {
@@ -597,11 +587,11 @@ class EngineUpdateContext {
 
 				fs.readdir(this._ext.getWsPath(), { withFileTypes: true }, (errno, files: fs.Dirent[]) => {
 					if (errno !== null) {
-						reportFailureAndReject(reject, `Cannot read folder "${this._ext.getWsPath()}": ` + errno);
+						this._ext.reportFailureAndReject(reject, `Cannot read folder "${this._ext.getWsPath()}": ${errno}`);
 					} else {
 						progress.setBase(25);
 						files.forEach((dirent) => {
-							/* console.log('parentPath: "' + dirent.parentPath +
+							/* this._ext.log('parentPath: "' + dirent.parentPath +
 								'" name: "' + dirent.name +
 								'" isFile: ' + dirent.isFile() +
 								' isDirectory: ' + dirent.isDirectory() +
@@ -615,10 +605,10 @@ class EngineUpdateContext {
 								const filename: string = dirent.parentPath + path.sep + dirent.name;
 								fs.readlink(filename, (errno, linkString: string) => {
 									if (errno !== null) {
-										console.error(`Cannot read link "${filename}": `, errno);
+										this._ext.logError(`Cannot read link "${filename}: ${errno}`);
 									} else {
 										if (linkString === platformRedirectorName) {
-											console.log(`"${dirent.name}" is redirected`);
+											this._ext.log(`File "${dirent.name}" is redirected`);
 											this._redirectedBinaries.add(filename);
 											// this._hasPlatformRedirector = true;
 										}
@@ -627,7 +617,7 @@ class EngineUpdateContext {
 								});
 								// } else if (dirent.isFile()) {
 								// 	if (dirent.name === platformRedirectorName) {
-								// 		console.log('Found "platform-redirector"');
+								// 		this._ext.log('Found "platform-redirector"');
 								// 		this._hasPlatformRedirector = true;
 								// 	}
 							}
@@ -641,7 +631,7 @@ class EngineUpdateContext {
 
 	// check that all binaries are inside the workspace
 	private _checkInside() {
-		console.log("Engine update step 2: Check all the binaries are inside the workspace");
+		this._ext.log("Engine update step 2: Check all the binaries are inside the workspace");
 		let outside: string = '';
 		const wsPath: string = this._ext.getWsPath();
 
@@ -701,19 +691,19 @@ class EngineUpdateContext {
 		if (outside.length === 0) {
 			this._locateOld();
 		} else {
-			reportFailure('Cannot automatically update Umajin engine, because the following binaries are outside the workspace:' + outside);
+			this._ext.reportFailure(`Cannot automatically update Umajin engine, because the following binaries are outside the workspace: ${outside}`);
 		}
 	}
 
 	private _locateOld() {
-		console.log("Engine update step 3: Locate the old installation");
+		this._ext.log("Engine update step 3: Locate the old installation");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update: Looking for the old installation',
 			cancellable: true
 		}, (vscProgress, token) => {
 			token.onCancellationRequested(() => {
-				console.log("Engine update cancelled - User cancelled looking for the old installation");
+				this._ext.log("Engine update cancelled - User cancelled looking for the old installation");
 			});
 
 			return new Promise<void>((resolve, _reject) => {
@@ -721,13 +711,13 @@ class EngineUpdateContext {
 					// print results:
 					this._presentBinaries.forEach((binaryMap, platformKey) => {
 						binaryMap.forEach((filename, binaryKey) => {
-							console.log(`Found binary ${platformKey} ${binaryKey}: "${filename}"`);
+							this._ext.log(`Found binary ${platformKey} ${binaryKey}: "${filename}"`);
 							this._detectedUIs.add(binaryKey);
 							this._detectedPlatforms.add(platformKey);
 						});
 					});
 					this._presentAssociatedFiles.forEach((filename) => {
-						console.log(`Found an associated file "${filename}"`);
+						this._ext.log(`Found an associated file "${filename}"`);
 					});
 
 					// move to the next step:
@@ -802,7 +792,7 @@ class EngineUpdateContext {
 						 */
 						let filename: string = this._ext.getBundlePath(platformValue, binaryValue);
 						if (platformKey === PlatformNameValue.WindowsX64) {
-							console.log(`Looking for binary "${filename}"`);
+							this._ext.log(`Looking for binary "${filename}"`);
 							fs.lstat(filename, (errno) => {
 								if (errno === null) {
 									// windows? y:
@@ -817,7 +807,7 @@ class EngineUpdateContext {
 							});
 						}
 						else {
-							console.log(`Looking for binary "${filename}"`);
+							this._ext.log(`Looking for binary "${filename}"`);
 							fs.lstat(filename, (errno, stats) => {
 								if (errno === null) {
 									if (stats.isSymbolicLink()) {
@@ -825,7 +815,7 @@ class EngineUpdateContext {
 											if (errno === null) {
 												if (linkString === platformRedirectorName) {
 													filename = platformValue.redirectedPath(filename);
-													console.log(`Looking for binary "${filename}"`);
+													this._ext.log(`Looking for binary "${filename}"`);
 													fs.lstat(filename, (errno) => {
 														if (errno === null) {
 															// windows? n:
@@ -876,7 +866,7 @@ class EngineUpdateContext {
 									}
 								} else {
 									filename = platformValue.redirectedPath(filename);
-									console.log(`Looking for binary "${filename}"`);
+									this._ext.log(`Looking for binary "${filename}"`);
 									fs.lstat(filename, (errno) => {
 										if (errno === null) {
 											// windows? n:
@@ -898,7 +888,7 @@ class EngineUpdateContext {
 
 					if (platformKey !== PlatformNameValue.WindowsX64) {
 						const filename: string = platformValue.redirectedPath(this._ext.getWsPath() + path.sep + 'stdlib.u');
-						console.log(`Looking for symlink "${filename}"`);
+						this._ext.log(`Looking for symlink "${filename}"`);
 						fs.lstat(filename, (errno) => {
 							if (errno === null) {
 								markArtifactPresent(filename);
@@ -909,7 +899,7 @@ class EngineUpdateContext {
 				});
 
 				associatedFiles.forEach((filename) => {
-					console.log(`Looking for an associated file "${filename}"`);
+					this._ext.log(`Looking for an associated file "${filename}"`);
 					fs.stat(filename, (errno) => {
 						if (errno === null) {
 							markArtifactPresent(filename);
@@ -922,7 +912,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectUIs() {
-		console.log("Engine update step 4: Ask user to select UI");
+		this._ext.log("Engine update step 4: Ask user to select UI");
 
 		const guiItem: EngineUpdateUIItem = new EngineUpdateUIItem(Binary.GUI, 'GUI', '-- Graphical User Interface', '(with a window)');
 		const cliItem: EngineUpdateUIItem = new EngineUpdateUIItem(Binary.CLI, 'CLI', '-- Command Line Interface', '(without a window)');
@@ -960,6 +950,7 @@ class EngineUpdateContext {
 				});
 			}
 			else {
+				this._ext.log(`User selected: ${Array.from(this._selectedUIs).join(', ')}`);
 				this._selectDevPlatforms();
 			}
 		});
@@ -970,7 +961,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectDevPlatforms() {
-		console.log("Engine update step 5: Ask user to select Dev platforms");
+		this._ext.log("Engine update step 5: Ask user to select Dev platforms");
 		const windowsItem: EngineUpdatePlatformItem = new EngineUpdatePlatformItem(PlatformNameValue.WindowsX64, 'Windows - x86_64', '(Intel/AMD CPUs)', 'x64');
 		const macArm64Item: EngineUpdatePlatformItem = new EngineUpdatePlatformItem(PlatformNameValue.MacArm64, 'Mac - arm64', '(Apple Silicon)', 'arm64');
 		const linuxX64Item: EngineUpdatePlatformItem = new EngineUpdatePlatformItem(PlatformNameValue.LinuxX64, 'Linux - x86_64', '(Intel/AMD CPUs)', 'x64');
@@ -1015,6 +1006,7 @@ class EngineUpdateContext {
 				});
 			}
 			else {
+				this._ext.log(`User selected: ${Array.from(this._selectedDevPlatforms).join(', ')}`);
 				this._selectSimPlatforms();
 			}
 		});
@@ -1025,7 +1017,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectSimPlatforms() {
-		console.log("Engine update step 6: Ask user to select Sim platforms");
+		this._ext.log("Engine update step 6: Ask user to select Sim platforms");
 		const nativeOnlyItem: EngineUpdateSimulationPlatformItem = new EngineUpdateSimulationPlatformItem(false, 'Native only', '', '');
 		const crossSimItem: EngineUpdateSimulationPlatformItem = new EngineUpdateSimulationPlatformItem(true, 'Cross-platform', '', 'Compilation simulation via umajinc');
 
@@ -1045,6 +1037,7 @@ class EngineUpdateContext {
 			});
 			simPlatformSelector.dispose();
 
+			this._ext.log(`User selected: ${(this._withSimCross ? 'with' : 'without')} simulation support`);
 			this._selectRunPlatforms();
 		});
 		simPlatformSelector.onDidHide(() => {
@@ -1054,7 +1047,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectRunPlatforms() {
-		console.log("Engine update step 7: Ask user to select Run platforms");
+		this._ext.log("Engine update step 7: Ask user to select Run platforms");
 		if (this._selectedDevPlatforms.size === EngineUpdateContext.platforms.size) {
 			this._selectChannel();
 		} else {
@@ -1094,6 +1087,11 @@ class EngineUpdateContext {
 				});
 				runPlatformSelector.dispose();
 
+				if (this._selectedRunPlatforms.size === 0) {
+					this._ext.log('User selected nothing');
+				} else {
+					this._ext.log(`User selected: ${Array.from(this._selectedRunPlatforms).join(', ')}`);
+				}
 				this._selectChannel();
 			});
 			runPlatformSelector.onDidHide(() => {
@@ -1104,7 +1102,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectChannel() {
-		console.log("Engine update step 8: Ask user to select distribution channel");
+		this._ext.log("Engine update step 8: Ask user to select distribution channel");
 		const channelSelector: vscode.QuickPick<EngineUpdateChannelItem> = vscode.window.createQuickPick<EngineUpdateChannelItem>();
 		channelSelector.title = 'Installing Umajin Engine';
 		channelSelector.step = 5;
@@ -1120,6 +1118,7 @@ class EngineUpdateContext {
 			this._selectedChannel = channelSelector.selectedItems[0]?.channel;
 			channelSelector.dispose();
 			if (this._selectedChannel) {
+				this._ext.log(`User selected: ${this._selectedChannel.title}`);
 				this._selectSource();
 			}
 		});
@@ -1130,14 +1129,14 @@ class EngineUpdateContext {
 	}
 
 	private _selectSource() {
-		console.log("Engine update step 9: Fetch and parse the distribution channel jobs");
+		this._ext.log("Engine update step 9: Fetch and parse the distribution channel jobs");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update: Scanning remote jobs',
 			cancellable: true
 		}, (vscProgress, token) => {
 			token.onCancellationRequested(() => {
-				console.log("Engine update cancelled - User cancelled scanning remote jobs");
+				this._ext.log("Engine update cancelled - User cancelled scanning remote jobs");
 			});
 
 			return new Promise<void>((resolve, reject) => {
@@ -1149,11 +1148,11 @@ class EngineUpdateContext {
 					.then(
 						(response) => {
 							progress.setBase(5);
-							// console.log('response: ' + JSON.stringify(response));
+							// this._ext.log('response: ' + JSON.stringify(response));
 							response.json().then(
 								(content) => {
-									// console.log('content: ' + JSON.stringify(content));
-									console.log(`Fetched from "${this._selectedChannel!.url}"`);
+									// this._ext.log('content: ' + JSON.stringify(content));
+									this._ext.log(`Fetched from "${this._selectedChannel!.url}"`);
 
 									if ('_class' in content && typeof content._class === 'string' && content._class === 'hudson.model.ListView' &&
 										'jobs' in content && Array.isArray(content.jobs)) {
@@ -1198,15 +1197,15 @@ class EngineUpdateContext {
 															const binaries: Map<PlatformName, string> = this._URLs.has(binaryGroup) ? this._URLs.get(binaryGroup)! : new Map<PlatformName, string>();
 															binaries.set(platformName, job.url);
 															this._URLs.set(binaryGroup, binaries);
-															console.log(`Job name "${job.name}" matches the selection`);
+															this._ext.log(`Job name "${job.name}" matches the selection`);
 														} else {
-															console.log(`Job name "${job.name}" does not match any selected binary-platform combination`);
+															this._ext.log(`Job name "${job.name}" does not match any selected binary-platform combination`);
 														}
 													} else {
-														console.log(`Job name "${job.name}" does not match a known platform`);
+														this._ext.log(`Job name "${job.name}" does not match a known platform`);
 													}
 												} else {
-													console.log(`Job name "${job.name}" does not match the template`);
+													this._ext.log(`Job name "${job.name}" does not match the template`);
 												}
 											}
 											jobDone++;
@@ -1233,11 +1232,11 @@ class EngineUpdateContext {
 													fetch(URL + '/api/json/?depth=2')
 														.then(
 															(response) => {
-																// console.log('response: ' + JSON.stringify(response));
+																// this._ext.log('response: ' + JSON.stringify(response));
 																response.json().then(
 																	(content) => {
-																		// console.log('content: ' + JSON.stringify(content));
-																		console.log(`Fetched from "${URL}"`);
+																		// this._ext.log('content: ' + JSON.stringify(content));
+																		this._ext.log(`Fetched from "${URL}"`);
 
 																		if ('_class' in content && typeof content._class === 'string' && content._class === 'hudson.model.FreeStyleProject' &&
 																			'builds' in content && Array.isArray(content.builds)) {
@@ -1269,68 +1268,68 @@ class EngineUpdateContext {
 																							}
 																						});
 																						if (relativePath !== undefined) {
-																							console.log(`Found artifact "${artifactsUrl}/${relativePath}" compiled on ` + new Date(build.timestamp as number).toString());
+																							this._ext.log(`Found artifact "${artifactsUrl}/${relativePath}" compiled on ${new Date(build.timestamp as number).toString()}`);
 																							const zipsL1: Map<Binary, Map<PlatformName, Artifact>> = this._zips.has(description) ? this._zips.get(description)! : new Map<Binary, Map<PlatformName, Artifact>>();
 																							const zipsL2: Map<PlatformName, Artifact> = zipsL1.has(binary) ? zipsL1.get(binary)! : new Map<PlatformName, Artifact>();
-																							zipsL2.set(platformName, new Artifact(artifactsUrl + '/' + relativePath, build.timestamp as number));
+																							zipsL2.set(platformName, new Artifact(`${artifactsUrl}/${relativePath}`, build.timestamp as number));
 																							zipsL1.set(binary, zipsL2);
 																							this._zips.set(description, zipsL1);
 
 																						} else {
-																							console.log('Artifact relative path not found');
+																							this._ext.log('Artifact relative path not found');
 																						}
 																					} else {
-																						console.log('Artifacts URL not found');
+																						this._ext.log('Artifacts URL not found');
 																					}
 																				} else {
-																					console.log('Invalid build structure');
+																					this._ext.log('Invalid build structure');
 																				}
 																			});
 																		} else {
-																			console.log('Invalid content structure');
+																			this._ext.log('Invalid content structure');
 																		}
 
 																		progress.partFinished();
 																	},
 																	(reason) => {
-																		reportFailureAndReject(reject, 'Failed to parse fetched job info for the engine update: ' + JSON.stringify(reason));
+																		this._ext.reportFailureAndReject(reject, `Failed to parse fetched job info for the engine update: ${JSON.stringify(reason)}`);
 																	});
 															},
 															(reason) => {
-																reportFailureAndReject(reject, 'Failed to fetch job info for the engine update: ' + JSON.stringify(reason));
+																this._ext.reportFailureAndReject(reject, `Failed to fetch job info for the engine update: ${JSON.stringify(reason)}`);
 															});
 												});
 											});
 
 										} else {
-											reportFailureAndReject(reject, 'Could not find all the required jobs for the engine update');
+											this._ext.reportFailureAndReject(reject, 'Could not find all the required jobs for the engine update');
 										}
 									}
 								},
 								(reason) => {
-									reportFailureAndReject(reject, 'Failed to parse fetched channel info for the engine update: ' + JSON.stringify(reason));
+									this._ext.reportFailureAndReject(reject, `Failed to parse fetched channel info for the engine update: ${JSON.stringify(reason)}`);
 								});
 						},
 						(reason) => {
-							reportFailureAndReject(reject, 'Failed to fetch channel info for the engine update: ' + JSON.stringify(reason));
+							this._ext.reportFailureAndReject(reject, `Failed to fetch channel info for the engine update: ${JSON.stringify(reason)}`);
 						});
 			});
 		});
 	}
 
 	private _selectJobSet() {
-		console.log("Engine update step 10: Ask user to select the jobset");
+		this._ext.log("Engine update step 10: Ask user to select the jobset");
 		const fullSets = new Map<number, Set<string>>();
 		this._zips.forEach((zipsL1, description) => {
-			console.log(`Job description: ${description}`);
+			this._ext.log(`Job description: ${description}`);
 
 			let earliestTimestamp: number = 0;
 			zipsL1.forEach((zipsL2, binary) => {
-				console.log(`Binary: ${binary}`);
+				this._ext.log(`Binary: ${binary}`);
 				zipsL2.forEach((artifact, platformName) => {
-					console.log(`PlatformName: ${platformName}`);
-					console.log(`URL: ${artifact.URL}`);
-					console.log('Date: ' + new Date(artifact.timestamp).toLocaleString());
+					this._ext.log(`PlatformName: ${platformName}`);
+					this._ext.log(`URL: ${artifact.URL}`);
+					this._ext.log(`Date: ${new Date(artifact.timestamp).toLocaleString()}`);
 					earliestTimestamp = Math.min(earliestTimestamp, -artifact.timestamp);
 				});
 			});
@@ -1342,13 +1341,13 @@ class EngineUpdateContext {
 				(this._selectedUIs.has(Binary.CLI) ?
 					(zipsL1.has(Binary.CLI) && zipsL1.get(Binary.CLI)!.size === (this._selectedDevPlatforms.size + this._selectedRunPlatforms.size)) :
 					!zipsL1.has(Binary.CLI))) {
-				console.log(`${description} is a full set`);
+				this._ext.log(description + ' is a full set');
 
 				const fullSet: Set<string> = fullSets.has(earliestTimestamp) ? fullSets.get(earliestTimestamp)! : new Set<string>();
 				fullSet.add(description);
 				fullSets.set(earliestTimestamp, fullSet);
 			} else {
-				console.log(`${description} is NOT a full set`);
+				this._ext.log(description + ' is NOT a full set');
 			}
 		});
 
@@ -1376,6 +1375,7 @@ class EngineUpdateContext {
 				this._selectedJobset = buildSelector.selectedItems[0];
 				buildSelector.dispose();
 				if (this._selectedJobset !== undefined) {
+					this._ext.log(`User selected: ${this._selectedJobset.label}`);
 					this._download();
 				}
 			});
@@ -1387,7 +1387,7 @@ class EngineUpdateContext {
 	}
 
 	private _download() {
-		console.log("Engine update step 11: Download the job artifacts");
+		this._ext.log("Engine update step 11: Download the job artifacts");
 		// find if there is going to be any clashes
 		{
 			const allBinaries = new Set<string>();
@@ -1423,7 +1423,7 @@ class EngineUpdateContext {
 			cancellable: true
 		}, (vscProgress, token) => {
 			token.onCancellationRequested(() => {
-				console.log("Engine update cancelled - User cancelled downloading artifacts");
+				this._ext.log("Engine update cancelled - User cancelled downloading artifacts");
 			});
 
 			return new Promise<void>((resolve, reject) => {
@@ -1446,34 +1446,34 @@ class EngineUpdateContext {
 				const createAndProceed = () => {
 					fs.mkdir(cacheFolder, { recursive: true }, (errno) => {
 						if (errno !== null) {
-							console.error(`Cannot create directory "${cacheFolder}":`, errno);
+							this._ext.logError(`Cannot create directory "${cacheFolder}": ${errno}`);
 						} else {
 							this._zips.get(selectedDescription)!.forEach((zipsL1, binary) => {
 								zipsL1.forEach((artifact, platformName) => {
-									const filename: string = cacheFolder + path.sep + binary + '-' + platformName + '.zip';
+									const filename: string = `${cacheFolder}${path.sep}${binary}-${platformName}.zip`;
 
 									http.get(artifact.URL, (response) => {
 										response.pipe(fs.createWriteStream(filename, { flush: true }))
 											.on('error', (reason) => {
 												fs.unlink(filename, (errno) => {
 													if (errno !== null) {
-														console.error(`Cannot remove ${filename}: `, errno);
+														this._ext.logError(`Cannot remove file "${filename}": ${errno}`);
 													}
 												});
-												reportFailureAndReject(reject, 'Failed to save downloaded artifact "' + artifact.URL + '": ' + reason);
+												this._ext.reportFailureAndReject(reject, `Failed to save downloaded artifact "${artifact.URL}": ${reason}`);
 											})
 											.on('finish', () => {
-												console.log(`Artifact "${filename}" downloaded successfully`);
+												this._ext.log(`Artifact "${filename}" downloaded successfully`);
 
 												progress.partFinished();
 											});
 									}).on('error', (reason) => {
 										fs.unlink(filename, (errno) => {
 											if (errno !== null) {
-												console.error(`Cannot remove ${filename}: `, errno);
+												this._ext.logError(`Cannot remove file "${filename}": ${errno}`);
 											}
 										});
-										reportFailureAndReject(reject, 'Failed to download artifact "' + artifact.URL + '": ' + reason);
+										this._ext.reportFailureAndReject(reject, `Failed to download artifact "${artifact.URL}": ${reason}`);
 									});
 
 								});
@@ -1488,7 +1488,7 @@ class EngineUpdateContext {
 					} else {
 						fs.rm(cacheFolder, { recursive: true, force: true }, (errno) => {
 							if (errno !== null) {
-								reportFailureAndReject(reject, 'Failed to cleanup cache folder: ' + errno);
+								this._ext.reportFailureAndReject(reject, `Failed to cleanup the cache folder: ${errno}`);
 							} else {
 								createAndProceed();
 							}
@@ -1500,7 +1500,7 @@ class EngineUpdateContext {
 	}
 
 	private _deleteOld() {
-		console.log("Engine update step 12: Delete the old installation");
+		this._ext.log("Engine update step 12: Delete the old installation");
 		this._ext.stopLanguageClientImpl().finally(() => {
 			vscode.window.withProgress<void>({
 				location: vscode.ProgressLocation.Notification,
@@ -1508,7 +1508,7 @@ class EngineUpdateContext {
 				cancellable: true
 			}, (vscProgress, token) => {
 				token.onCancellationRequested(() => {
-					console.log("Engine update cancelled - User cancelled deleting files");
+					this._ext.log("Engine update cancelled - User cancelled deleting files");
 				});
 
 				return new Promise<void>((resolve, reject) => {
@@ -1525,19 +1525,20 @@ class EngineUpdateContext {
 					})());
 
 					const deleteOld = (filename: string, attempts: number = 5, delay: number = 500) => {
-						console.log(`Deleting "${filename}"`);
+						this._ext.log(`Deleting "${filename}"...`);
 
 						fs.rm(filename, { recursive: true, force: true }, (errno) => {
 							if (errno !== null) {
 								if (attempts !== 0) {
-									console.error('Failed to delete "' + filename + '" with ' + (attempts - 1) + ' attempts remaining: ' + errno);
+									this._ext.logError(`Failed to delete "${filename}" with $(attempts - 1) attempts remaining: ${errno}, trying again in ${delay}ms...`);
 									setTimeout(() => {
 										deleteOld(filename, attempts - 1, delay);
 									}, delay);
 								} else {
-									reportFailureAndReject(reject, 'Failed to delete "' + filename + '": ' + errno);
+									this._ext.reportFailureAndReject(reject, `Failed to delete "${filename}": ${errno}`);
 								}
 							} else {
+								this._ext.log(`File "${filename}" is deleted`);
 								progress.partFinished();
 							}
 						});
@@ -1558,14 +1559,14 @@ class EngineUpdateContext {
 	}
 
 	private _checkInfrastructure() {
-		console.log("Engine update step 13: Check and fix the generated infrastructure");
+		this._ext.log("Engine update step 13: Check and fix the generated infrastructure");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update (3/4): Checking infrastructure...',
 			cancellable: true
 		}, (vscProgress, token) => {
 			token.onCancellationRequested(() => {
-				console.log("Engine update cancelled - User cancelled checking the infrastructure");
+				this._ext.log("Engine update cancelled - User cancelled checking the infrastructure");
 			});
 			return new Promise<void>((resolve, reject) => {
 				const progress = new Progress(vscProgress, () => {
@@ -1619,53 +1620,77 @@ class EngineUpdateContext {
 					+ EngineUpdateContext.platforms.size - 1 /* windows */
 				);
 
-				const makeSymlink = (filename: string, target: string) => {
+				const makeSymlink = (filename: string, target: string, attempts: number, delay: number) => {
+					if (attempts === 0) {
+						this._ext.reportFailureAndReject(reject, `Failed to creating symlink "${filename}"`);
+					} else {
+						this._ext.log(`Creating symlink "${filename}" pointing at "${target}"...`);
+						fs.symlink(target, filename, (errno) => {
+							if (errno !== null) {
+								this._ext.logError(`Failed to create symlink "${filename}" with ${(attempts - 1)} attempts remaining: ${errno}, trying again in ${delay}ms...`);
+								setTimeout(() => {
+									makeSymlink(filename, target, attempts - 1, delay);
+								}, delay);
+							} else {
+								this._ext.log(`Symlink "${filename}" created`);
+								progress.partFinished();
+							}
+						});
+					}
+				};
+
+				const makeFoldersAndSymlink = (filename: string, target: string, attempts: number, delay: number) => {
+					this._ext.log(`Creating folders for symlink "${filename}"...`);
 					fs.mkdir(path.dirname(filename), { recursive: true }, (errno) => {
 						if (errno !== null) {
-							reportFailureAndReject(reject, 'Failed to create directory ' + path.dirname(filename) + '":' + errno);
+							this._ext.reportFailureAndReject(reject, `Failed to create directory ${path.dirname(filename)}":${errno}`);
 						} else {
-							fs.symlink(target, filename, (errno) => {
-								if (errno !== null) {
-									reportFailureAndReject(reject, 'Failed to create symlink "' + filename + '": ' + errno);
-								} else {
-									progress.partFinished();
-								}
-							});
+							this._ext.log(`Folders created for symlink "${filename}"`);
+							makeSymlink(filename, target, attempts, delay);
 						}
 					});
 				};
 
-				const deleteAndMakeSymlink = (filename: string, target: string) => {
+				const deleteAndMakeSymlink = (filename: string, target: string, attempts: number, delay: number) => {
+					this._ext.log(`Deleting symlink "${filename}"...`);
 					fs.rm(filename, { recursive: true, force: true }, (errno) => {
 						if (errno !== null) {
-							reportFailureAndReject(reject, 'Failed to delete symlink "' + filename + '": ' + errno);
+							this._ext.reportFailureAndReject(reject, `Failed to delete symlink "${filename}": ${errno}`);
 						} else {
-							makeSymlink(filename, target);
+							this._ext.log(`Symlink "${filename}" is deleted`);
+							makeFoldersAndSymlink(filename, target, attempts, delay);
 						}
 					});
 				};
 
-				const ensureSymlink = (filename: string, target: string) => {
+				const ensureSymlink = (filename: string, target: string, attempts: number = 5, delay: number = 500) => {
+					this._ext.log(`Checking symlink "${filename}"...`);
 					fs.lstat(filename, (errno, stats) => {
 						if (errno === null) {
 							if (stats.isSymbolicLink()) {
+								this._ext.log(`File "${filename}" is a symlink`);
+								this._ext.log(`Reading symlink "${filename}"...`);
 								fs.readlink(filename, (errno, linkString: string) => {
 									if (errno !== null) {
-										reportFailureAndReject(reject, 'Cannot read symlink "' + filename + '": ' + errno);
+										this._ext.reportFailureAndReject(reject, `Cannot read symlink "${filename}": ${errno}`);
 									} else {
 										if (linkString === target) {
+											this._ext.log(`Symlink "${filename}" is correct`);
 											progress.partFinished();
 										} else {
-											deleteAndMakeSymlink(filename, target);
+											this._ext.log(`Symlink "${filename}" read. It points at "${linkString}"`);
+											deleteAndMakeSymlink(filename, target, attempts, delay);
 										}
 									}
 								});
 								return;
 							} else {
-								deleteAndMakeSymlink(filename, target);
+								this._ext.log(`File "${filename}" is not a symlink`);
+								deleteAndMakeSymlink(filename, target, attempts, delay);
 							}
 						} else {
-							makeSymlink(filename, target);
+							this._ext.log(`Failed to check symlink "${filename}": ${errno}`);
+							makeFoldersAndSymlink(filename, target, attempts, delay);
 						}
 					});
 				};
@@ -1675,12 +1700,13 @@ class EngineUpdateContext {
 					const filename: string = this._ext.getWsPath() + path.sep + binary;
 					if (this._needRedirection.has(binary)) {
 						ensureSymlink(filename, platformRedirectorName);
-					}
-					else {
+					} else {
+						this._ext.log(`Deleting symlink "${filename}"...`);
 						fs.rm(filename, { recursive: true, force: true }, (errno) => {
 							if (errno !== null) {
-								reportFailure('Failed to delete "' + filename + '": ' + errno);
+								this._ext.reportFailure(`Failed to delete "${filename}": ${errno}`);
 							}
+							this._ext.log(`Symlink "${filename}" is deleted`);
 							progress.partFinished();
 						});
 					}
@@ -1697,49 +1723,61 @@ class EngineUpdateContext {
 					// check / fix the content of platform-redirector
 					{
 						const checkAccess = (filename: string) => {
+							this._ext.log(`Checking executable access on "${filename}"...`);
 							fs.access(filename, fs.constants.X_OK, (errno) => {
 								if (errno !== null) {
+									this._ext.log(`Failed to confirm that "${filename}" has an executable access: ${errno}`);
+									this._ext.log(`Setting access on "${filename}"...`);
 									fs.chmod(filename, 0o775 /* rwxrwxr-x */, (errno) => {
 										if (errno !== null) {
-											reportFailureAndReject(reject, 'Cannot change "platform-redirector" file access mode: ' + errno);
+											this._ext.reportFailureAndReject(reject, `Cannot change "platform-redirector" file access mode: ${errno}`);
 										} else {
+											this._ext.log(`Executable access is set for file "${filename}"`);
 											progress.partFinished();
 										}
 									});
 								} else {
+									this._ext.log(`File "${filename}" has an executable access`);
 									progress.partFinished();
 								}
 							});
 						};
 
 						const createFile = (filename: string) => {
+							this._ext.log(`Writing file "${filename}"...`);
 							fs.writeFile(filename, platformRedirectorContent, (errno) => {
 								if (errno === null) {
+									this._ext.log(`File "${filename}" is written`);
 									checkAccess(filename);
 								} else {
-									reportFailureAndReject(reject, 'Cannot create "platform-redirector" file: ' + errno);
+									this._ext.reportFailureAndReject(reject, `Cannot create "platform-redirector" file: ${errno}`);
 								}
 							});
 						};
 
 						const recreateFile = (filename: string) => {
+							this._ext.log(`Deleting file "${filename}"...`);
 							fs.rm(filename, { recursive: true, force: true }, (errno) => {
 								if (errno === null) {
 									createFile(filename);
 								} else {
-									reportFailureAndReject(reject, 'Cannot recreate "platform-redirector" file: ' + errno);
+									this._ext.log(`File "${filename}" is deleted`);
+									this._ext.reportFailureAndReject(reject, `Cannot recreate "platform-redirector" file: ${errno}`);
 								}
 							});
 						};
 
 						const filename: string = this._ext.getWsPath() + path.sep + platformRedirectorName;
+						this._ext.log(`Checking file "${filename}"...`);
 						fs.stat(filename, (errno, stats) => {
 							if (errno === null) {
 								if (stats.isFile()) {
+									this._ext.log(`Reading file "${filename}"...`);
 									fs.readFile(filename, 'utf-8', (errno, data) => {
 										if (errno !== null) {
-											console.error('Cannot read platform-redirector file: ', errno);
+											this._ext.logError(`Cannot read platform-redirector file: ${errno}`);
 										} else {
+											this._ext.log(`File "${filename}" is read`);
 											if (data === platformRedirectorContent) {
 												checkAccess(filename);
 											} else {
@@ -1748,25 +1786,30 @@ class EngineUpdateContext {
 										}
 									});
 								} else {
+									this._ext.log(`File "${filename}" is not a file`);
 									recreateFile(filename);
 								}
 							} else {
+								this._ext.log(`Failed to check file: "${filename}"${errno}`);
 								createFile(filename);
 							}
 						});
 					}
-				}
-				else {
+				} else {
 					// delete the platform-redirector
 					const filename: string = this._ext.getWsPath() + path.sep + platformRedirectorName;
+					this._ext.log(`Deleting file "${filename}"...`);
 					fs.rm(filename, { recursive: true, force: true }, (errno) => {
 						if (errno !== null) {
-							reportFailure('Failed to delete "' + filename + '": ' + errno);
+							this._ext.reportFailure(`Failed to delete "${filename}": ${errno}`);
+						} else {
+							this._ext.log(`File "${filename}" is deleted`);
 						}
 						progress.partFinished();
 					});
 				}
 
+				// delete folders if empty
 				EngineUpdateContext.platforms.forEach((platformValue, platformName) => {
 					if (platformName !== PlatformNameValue.WindowsX64) {
 						if (!this._needPlatformRedirector
@@ -1774,21 +1817,25 @@ class EngineUpdateContext {
 								&& !this._selectedRunPlatforms.has(platformName)
 							)) {
 							const subfoldername: string = this._ext.getWsPath() + path.sep + platformValue.redirectionFolder;
+							this._ext.log(`Checking if folder "${subfoldername}" is empty...`);
 							fs.readdir(subfoldername, (errno, files) => {
 								if (errno !== null) {
 									if (errno.code !== 'ENOENT' /* was not here at all */) {
-										reportFailure('Cannot read folder "' + subfoldername + '": ' + errno);
+										this._ext.reportFailure(`Cannot read folder "${subfoldername}": ${errno}`);
 									}
 									progress.partFinished();
 								} else {
 									if (files.length !== 0) {
+										this._ext.log(`Folder "${subfoldername}" is not empty`);
 										progress.partFinished();
 									} else {
+										this._ext.log(`Deleting folder "${subfoldername}"...`);
 										fs.rmdir(subfoldername, (errno) => {
 											if (errno !== null) {
-												reportFailure('Cannot remove empty folder "' + subfoldername + '": ' + errno);
+												this._ext.reportFailure(`Cannot remove empty folder "${subfoldername}": ${errno}`);
 												progress.partFinished();
 											} else {
+												this._ext.log(`Folder "${subfoldername}" is deleted`);
 												if (!this._needPlatformRedirector // only sinlge *nix platform is selected
 													|| ( // no subplatforms:
 														platformValue.isMac
@@ -1800,17 +1847,22 @@ class EngineUpdateContext {
 															&& !this._selectedDevPlatforms.has(PlatformNameValue.LinuxArm64)
 															&& !this._selectedRunPlatforms.has(PlatformNameValue.LinuxArm64)))) {
 													const foldername: string = path.dirname(subfoldername);
+													this._ext.log(`Checking if folder "${foldername}" is empty...`);
 													fs.readdir(foldername, (errno, files) => {
 														if (errno !== null) {
-															reportFailure('Cannot read folder "' + foldername + '": ' + errno);
+															this._ext.reportFailure(`Cannot read folder "${foldername}": ${errno}`);
 															progress.partFinished();
 														} else {
 															if (files.length !== 0) {
+																this._ext.log(`Folder "${foldername}" is not empty`);
 																progress.partFinished();
 															} else {
+																this._ext.log(`Deleting folder "${foldername}"...`);
 																fs.rmdir(foldername, (errno) => {
 																	if (errno !== null && errno.code !== 'ENOENT' /* may be already deleted */) {
-																		reportFailure('Cannot remove empty folder "' + foldername + '": ' + errno);
+																		this._ext.reportFailure(`Cannot remove empty folder "${foldername}": ${errno}`);
+																	} else {
+																		this._ext.log(`Folder "${foldername}" is deleted`);
 																	}
 																	progress.partFinished();
 																});
@@ -1835,14 +1887,14 @@ class EngineUpdateContext {
 	}
 
 	private _installNew() {
-		console.log("Engine update step 14: Unpack the artifacts");
+		this._ext.log("Engine update step 14: Unpack the artifacts");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update (4/4): Unpacking artifacts...',
 			cancellable: true
 		}, (vscProgress, token) => {
 			token.onCancellationRequested(() => {
-				console.log("Engine update cancelled - User cancelled unpacking artifacts");
+				this._ext.log("Engine update cancelled - User cancelled unpacking artifacts");
 			});
 
 			vscProgress.report({ increment: 0 });
@@ -1870,7 +1922,7 @@ class EngineUpdateContext {
 					switch (binary) {
 						case Binary.LS:
 							zipsL1.forEach((_artifact, platformName) => {
-								const zipname: string = binary + '-' + platformName + '.zip';
+								const zipname: string = `${binary}-${platformName}.zip`;
 								const filename: string = cacheFolder + path.sep + zipname;
 
 								unzipper.Open.file(filename).then(
@@ -1897,9 +1949,10 @@ class EngineUpdateContext {
 																flush: true
 															}))
 														.on('error', (reason) => {
-															reportFailureAndReject(reject, 'Failed to extract file "' + file.path + '" from "' + zipname + '": ' + reason);
+															this._ext.reportFailureAndReject(reject, `Failed to extract file "${file.path}" from "${zipname}": ${reason}`);
 														})
 														.on('finish', () => {
+															this._ext.log(`Artifact for ${binary} on ${platformName} unpacked`);
 															progress.partFinished();
 														});
 												}
@@ -1907,7 +1960,7 @@ class EngineUpdateContext {
 										});
 									},
 									(reason) => {
-										reportFailureAndReject(reject, 'Failed to open "' + zipname + '": ' + reason);
+										this._ext.reportFailureAndReject(reject, `Failed to open "${zipname}": ${reason}`);
 									});
 							});
 							break;
@@ -1915,7 +1968,7 @@ class EngineUpdateContext {
 						case Binary.GUI:
 						case Binary.CLI:
 							zipsL1.forEach((_artifact, platformName) => {
-								const zipname: string = binary + '-' + platformName + '.zip';
+								const zipname: string = `${binary}-${platformName}.zip`;
 								const filename: string = cacheFolder + path.sep + zipname;
 
 								unzipper.Open.file(filename).then((centralDirectory) => {
@@ -1923,6 +1976,7 @@ class EngineUpdateContext {
 									const onUnzipped = () => {
 										zipRemain--;
 										if (zipRemain === 0) {
+											this._ext.log(`Artifact for ${binary} on ${platformName} unpacked`);
 											progress.partFinished();
 										}
 									};
@@ -1968,13 +2022,13 @@ class EngineUpdateContext {
 																				flush: true
 																			}))
 																		.on('error', (reason) => {
-																			reportFailureAndReject(reject, 'Failed to extract file "' + file.path + '" from "' + zipname + '": ' + reason);
+																			this._ext.reportFailureAndReject(reject, `Failed to extract file "${file.path}" from "${zipname}": ${reason}`);
 																		})
 																		.on('finish', () => {
 																			onUnzipped();
 																		});
 																} else {
-																	reportFailureAndReject(reject, 'Failed to create directory for file "' + file.path + '" while unpacking "' + zipname + '": ' + errno);
+																	this._ext.reportFailureAndReject(reject, `Failed to create directory for file "${file.path}" while unpacking "${zipname}": ${errno}`);
 																}
 															});
 															break;
@@ -1990,12 +2044,12 @@ class EngineUpdateContext {
 																			if (errno === null) {
 																				onUnzipped();
 																			} else {
-																				reportFailureAndReject(reject, 'Failed to create symlink "' + file.path + '" while unpacking "' + zipname + '": ' + errno);
+																				this._ext.reportFailureAndReject(reject, `Failed to create symlink "${file.path}" while unpacking "${zipname}": ${errno}`);
 																			}
 																		});
 																	});
 																} else {
-																	reportFailureAndReject(reject, 'Failed to create directory for symlink "' + file.path + '" while unpacking "' + zipname + '": ' + errno);
+																	this._ext.reportFailureAndReject(reject, `Failed to create directory for symlink "${file.path}" while unpacking "${zipname}": ${errno}`);
 																}
 															});
 															break;
@@ -2005,7 +2059,7 @@ class EngineUpdateContext {
 															break;
 
 														default:
-															reportFailureAndReject(reject, 'Failed to extract unsupported item "' + file.path + '" from "' + zipname + '"');
+															this._ext.reportFailureAndReject(reject, `Failed to extract unsupported item "${file.path}" from "${zipname}"`);
 													}
 
 													break;
@@ -2018,7 +2072,7 @@ class EngineUpdateContext {
 														if (errno == null) {
 															onUnzipped();
 														} else {
-															reportFailureAndReject(reject, 'Failed to create directory "' + file.path + '" while unpacking "' + zipname + '": ' + errno);
+															this._ext.reportFailureAndReject(reject, `Failed to create directory "${file.path}" while unpacking "${zipname}": ${errno}`);
 														}
 													});
 													break;
@@ -2035,7 +2089,7 @@ class EngineUpdateContext {
 									});
 								},
 									(reason) => {
-										reportFailureAndReject(reject, 'Failed to open "' + zipname + '": ' + reason);
+										this._ext.reportFailureAndReject(reject, `Failed to open "${zipname}": ${reason}`);
 									});
 							});
 							break;
@@ -2046,20 +2100,22 @@ class EngineUpdateContext {
 	}
 
 	private _cleanUp() {
-		console.log("Engine update step 15: Clean up the cache");
+		this._ext.log("Engine update step 15: Clean up the cache");
 		fs.rm(this._cacheFolder(), { recursive: true, force: true }, (errno) => {
 			if (errno !== null) {
-				console.error('Failed to delete engine update cache folder: ', errno);
+				this._ext.logError(`Failed to delete engine update cache folder: ${errno}`);
 			}
 
+			this._ext.log('Cache cleaned up');
 			this._generateStdlib();
 		});
 	}
 
 	private _generateStdlib() {
-		console.log("Engine update step 16: Generate stdlib.u");
+		this._ext.log("Engine update step 16: Generate stdlib.u");
 		if (this._selectedDevPlatforms.has(nativePlatform.nameForCompiler) || this._selectedRunPlatforms.has(nativePlatform.nameForCompiler)) {
-			this._ext.generateStdLibTry(this._selectedUIs.has(Binary.GUI), this._selectedUIs.has(Binary.CLI), (_success) => {
+			this._ext.generateStdLibTry(this._selectedUIs.has(Binary.GUI), this._selectedUIs.has(Binary.CLI), (success) => {
+				this._ext.log(`stdlib.u is ${(success ? '' : 'NOT ')}generated`);
 				this._reportUpdateComplete();
 			});
 		} else {
@@ -2069,7 +2125,7 @@ class EngineUpdateContext {
 	}
 
 	private _reportUpdateComplete() {
-		console.log("Engine update step 17: Report the completion to user");
+		this._ext.log("Engine update step 17: Report the completion to user");
 		if (this._selectedDevPlatforms.has(nativePlatform.nameForCompiler)) {
 			this._ext.startLanguageClientImpl();
 		} else {
@@ -2078,14 +2134,19 @@ class EngineUpdateContext {
 
 		let engineVersion: string = this._selectedJobset!.label;
 		if (this._selectedJobset!.detail !== '') {
-			engineVersion += ' (' + this._selectedJobset!.detail + ')';
+			engineVersion += ` (${this._selectedJobset!.detail})`;
 		}
-		vscode.window.showInformationMessage('Umajin Engine is updated to ' + engineVersion);
+
+		const message: string = `Umajin Engine is updated to ${engineVersion}`;
+		this._ext.log(message);
+		vscode.window.showInformationMessage(message);
 	}
 };
 
 class UmajinExtension {
 	private _context: vscode.ExtensionContext;
+	private _log: vscode.OutputChannel;
+
 	private _languageClient?: languageClient.LanguageClient | null = null;
 	private _serverVersion: string = '';
 
@@ -2111,17 +2172,19 @@ class UmajinExtension {
 	public constructor(context: vscode.ExtensionContext) {
 		this._context = context;
 
+		this._log = vscode.window.createOutputChannel("Umajin");
+
 		this._context.subscriptions.push(
-			vscode.commands.registerCommand('umajin.generateStdLib', UmajinExtension.generateStdLib),
-			vscode.commands.registerCommand('umajin.generateWorkspace', UmajinExtension.generateWorkspace),
-			vscode.commands.registerCommand('umajin.applyAllCodeActions', UmajinExtension.applyAllCodeActions),
-			vscode.commands.registerCommand('umajin.autoformatAll', UmajinExtension.autoformatAll),
-			vscode.commands.registerCommand('umajin.stopLanguageClient', UmajinExtension.stopLanguageClient),
-			vscode.commands.registerCommand('umajin.startLanguageClient', UmajinExtension.startLanguageClient),
-			vscode.commands.registerCommand('umajin.restartLanguageClient', UmajinExtension.restartLanguageClient),
-			vscode.commands.registerCommand('umajin.statusLanguageClient', UmajinExtension.statusLanguageClient),
-			vscode.commands.registerCommand('umajin.openEngineHelp', UmajinExtension.openEngineHelp),
-			vscode.commands.registerCommand('umajin.updateEngine', UmajinExtension.updateEngine)
+			vscode.commands.registerCommand('umajin.generateStdLib', this.generateStdLib, this),
+			vscode.commands.registerCommand('umajin.generateWorkspace', this.generateWorkspace, this),
+			vscode.commands.registerCommand('umajin.applyAllCodeActions', this.applyAllCodeActions, this),
+			vscode.commands.registerCommand('umajin.autoformatAll', this.autoformatAll, this),
+			vscode.commands.registerCommand('umajin.stopLanguageClient', this.stopLanguageClient, this),
+			vscode.commands.registerCommand('umajin.startLanguageClient', this.startLanguageClient, this),
+			vscode.commands.registerCommand('umajin.restartLanguageClient', this.restartLanguageClient, this),
+			vscode.commands.registerCommand('umajin.statusLanguageClient', this.statusLanguageClient, this),
+			vscode.commands.registerCommand('umajin.openEngineHelp', this.openEngineHelp, this),
+			vscode.commands.registerCommand('umajin.updateEngine', this.updateEngine, this)
 		);
 
 		if (vscode.workspace.workspaceFolders !== undefined) {
@@ -2154,6 +2217,27 @@ class UmajinExtension {
 	public async destruct() {
 		await this.stopLanguageClientImpl();
 	}
+
+
+	public log(message: string) {
+		console.log(message);
+		this._log.appendLine(`[INFO] ${message}`);
+	}
+
+	public logError(message: string) {
+		console.error(message);
+		this._log.appendLine(`[ERROR] ${message}`);
+	}
+
+	public reportFailure(message: string) {
+		this.logError(message);
+		vscode.window.showErrorMessage(message);
+	};
+
+	public reportFailureAndReject(reject: (reason?: any) => void, message: string) {
+		this.reportFailure(message);
+		reject(message);
+	};
 
 
 	public getWsPath(): string {
@@ -2201,21 +2285,20 @@ class UmajinExtension {
 		this._readConfig();
 
 		if (event.affectsConfiguration('umajin.path.languageServer') ||
-			event.affectsConfiguration('umajin.path' + nativePlatform.configGenericSuffix + '.languageServer') ||
-			event.affectsConfiguration('umajin.path' + nativePlatform.configSpecificSuffix + '.languageServer') ||
+			event.affectsConfiguration(`umajin.path${nativePlatform.configGenericSuffix}.languageServer`) ||
+			event.affectsConfiguration(`umajin.path${nativePlatform.configSpecificSuffix}.languageServer`) ||
 			event.affectsConfiguration('umajin.advanced.languageServer')) {
 			this._restartLanguageClientImpl();
 		}
 	}
 
-	public static generateStdLib() {
+	public generateStdLib() {
 		if (vscode.workspace.workspaceFolders === undefined) {
 			vscode.window.showErrorMessage('Generating Umajin Standard Library requires Umajin workspace to be open.');
 			return;
 		}
 
-		const self: UmajinExtension = umajin!;
-		self.generateStdLibTry(true, true, (success) => {
+		this.generateStdLibTry(true, true, (success) => {
 			if (success) {
 				vscode.window.showInformationMessage('Umajin Standard Library generated.');
 			} else {
@@ -2240,39 +2323,39 @@ class UmajinExtension {
 
 	private _generateStdLibTryUI(umajinJitFullPath: string, callback: (success: boolean) => void, attempts: number = 5, delay: number = 1000) {
 		if (attempts === 0) {
-			console.log('Will not generate stdlib.u using "' + umajinJitFullPath + '", no attempts remaining');
+			this.log(`Will not generate stdlib.u using "${umajinJitFullPath}", no attempts remaining`);
 			callback(false);
 		} else {
-			console.log('Generating stdlib.u using "' + umajinJitFullPath + '", attempts remaining: ' + attempts + ', checking the access...');
+			this.log(`Generating stdlib.u using "${umajinJitFullPath}", attempts remaining: ${attempts}, checking the access...`);
 			fs.access(umajinJitFullPath, fs.constants.R_OK | fs.constants.X_OK, (errno) => {
 				if (errno != null) {
-					console.error(`Cannot check "read+execute" access of "${umajinJitFullPath}": `, errno);
+					this.logError(`Cannot check "read+execute" access of "${umajinJitFullPath}": ${errno}`);
 					callback(false);
 				} else {
 					let exited: boolean = false;
-					console.log('Read and execute access confirmed, spawning the child process...');
+					this.log('Read and execute access confirmed, spawning the child process...');
 					try {
 						const child = childProcess.spawn(umajinJitFullPath, ['--print-stdlib'], {
 							cwd: this._wsPath,
 							stdio: ['ignore', 'pipe', 'pipe']
 						},)
 							.on('exit', () => {
-								console.log('Child process exited, waiting for streams to be closed...');
+								this.log('Child process exited, waiting for streams to be closed...');
 								exited = true;
 							})
 							.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
-								console.log('Child process closed streams, checking the exit code...');
+								this.log('Child process closed streams, checking the exit code...');
 								if (exited) {
 									if (signal === null && code !== null) {
 										switch (code) {
 											case 0:
 											case 2: // old expected status code of --print-stdlib
-												console.log('Exit code is good, stdlib.u generated');
+												this.log('Exit code is good, stdlib.u generated');
 												callback(true);
 												return;
 
 											case 126: // text file busy
-												console.log('Child process reports "text file busy", trying again in ' + delay + 'ms...');
+												this.log(`Child process reports "text file busy", trying again in ${delay}ms...`);
 												setTimeout(() => {
 													this._generateStdLibTryUI(umajinJitFullPath, callback, attempts - 1, delay);
 												}, delay);
@@ -2282,39 +2365,37 @@ class UmajinExtension {
 
 									let info: string = '';
 									if (code !== null) {
-										info += ' exit code: ' + code;
+										info += ` exit code: ${code}`;
 									}
 									if (signal !== null) {
-										info += ' signal: ' + signal;
+										info += ` signal: ${signal}`;
 									}
 									const stdout: Buffer | null = child.stdout.read();
 									if (stdout !== null) {
-										info += ' stdout: "' + stdout.toString() + '"';
+										info += ` stdout: "${stdout.toString()}"`;
 									}
 									const stderr: Buffer | null = child.stderr.read();
 									if (stderr !== null) {
-										info += ' stderr: "' + stderr.toString() + '"';
+										info += ` stderr: "${stderr.toString()}"`;
 									}
-									console.error('Cannot generate Umajin Standard Library using "' + umajinJitFullPath + '":' + info);
+									this.logError(`Cannot generate Umajin Standard Library using "${umajinJitFullPath}":${info}`);
 									callback(false);
 								}
 							})
 							.on('error', (err: Error) => {
-								console.log('Child process errored');
-								reportFailure('Cannot generate Umajin Standard Library using "' + umajinJitFullPath + '": ' + err);
+								this.reportFailure(`Cannot generate Umajin Standard Library using "${umajinJitFullPath}": ${err}`);
 								callback(false);
 							});
-						console.log('Child process spawned.');
+						this.log('Child process spawned.');
 					} catch (reason: any) {
 						if (reason.code === 'EBUSY') {
-							console.log('Child process fails to spawn throwing "EBUSY" exception, trying again in ' + delay + 'ms...');
+							this.log(`Child process fails to spawn throwing "EBUSY" exception, trying again in ${delay}ms...`);
 							setTimeout(() => {
 								this._generateStdLibTryUI(umajinJitFullPath, callback, attempts - 1, delay);
 							}, delay);
 						}
 						else {
-							console.log('Child process spawn thrown an exception');
-							reportFailure('Cannot generate Umajin Standard Library using "' + umajinJitFullPath + '": ' + reason);
+							this.reportFailure(`Cannot generate Umajin Standard Library using "${umajinJitFullPath}": ${reason}`);
 							callback(false);
 						}
 					}
@@ -2323,7 +2404,7 @@ class UmajinExtension {
 		}
 	}
 
-	public static generateWorkspace() {
+	public generateWorkspace() {
 		vscode.window.showOpenDialog({
 			title: 'Select start file',
 			canSelectMany: false,
@@ -2342,14 +2423,14 @@ class UmajinExtension {
 				const writeFile = (callback: () => void) => {
 					fs.readFile(umajin!._context.asAbsolutePath('snippets/code-workspace.json'), 'utf-8', (errno, data) => {
 						if (errno) {
-							reportFailure('Cannot read the snippet: ' + errno);
+							this.reportFailure(`Cannot read the snippet: ${errno}`);
 						}
 						else {
 							fs.writeFile(cwFilename, (jsonParse(data)
 							['Umajin VSCode Workspace'].body as string[]).join('\n')
 								.replace('$0', rootFilename), (errno) => {
 									if (errno) {
-										reportFailure('Cannot write Umajin VSCode workspace file: ' + errno);
+										this.reportFailure(`Cannot write Umajin VSCode workspace file: ${errno}`);
 									}
 									else {
 										callback();
@@ -2367,7 +2448,7 @@ class UmajinExtension {
 					if (errno === null) {
 						writeFile(openFile);
 					} else {
-						vscode.window.showInformationMessage(`File '${cwFilename}' already exists.\nDo you want to overwrite it?`, 'Yes', 'No')
+						vscode.window.showInformationMessage(`File "${cwFilename}" already exists.\nDo you want to overwrite it?`, 'Yes', 'No')
 							.then((answer) => {
 								switch (answer) {
 									case 'Yes':
@@ -2375,7 +2456,7 @@ class UmajinExtension {
 										break;
 
 									case 'No':
-										vscode.window.showInformationMessage(`Do you want to open '${cwFilename}' anyway?`, 'Yes', 'No')
+										vscode.window.showInformationMessage(`Do you want to open "${cwFilename}" anyway?`, 'Yes', 'No')
 											.then((answer) => {
 												switch (answer) {
 													case 'Yes':
@@ -2395,21 +2476,20 @@ class UmajinExtension {
 		});
 	}
 
-	public static applyAllCodeActions() {
+	public applyAllCodeActions() {
 		if (vscode.workspace.workspaceFolders === undefined) {
 			vscode.window.showErrorMessage('Applying all code actions requires Umajin workspace to be open.');
 			return;
 		}
 
-		const self: UmajinExtension = umajin!;
-		if (!self._languageClient) {
+		if (!this._languageClient) {
 			vscode.window.showErrorMessage('Applying all code actions requires Umajin language server to be connected.');
 			return;
 		}
 
 		vscode.window.showInformationMessage('Do you want to apply code actions to all files in the project or to open files only?', 'The whole project', 'Open files only')
 			.then(answer => {
-				self._languageClient!.sendRequest('workspace/executeCommand',
+				this._languageClient!.sendRequest('workspace/executeCommand',
 					{
 						'command': 'applyAllCodeActions',
 						'arguments':
@@ -2422,21 +2502,20 @@ class UmajinExtension {
 			);
 	}
 
-	public static autoformatAll() {
+	public autoformatAll() {
 		if (vscode.workspace.workspaceFolders === undefined) {
 			vscode.window.showErrorMessage('Autoformatting all Umajin files requires Umajin workspace to be open.');
 			return;
 		}
 
-		const self: UmajinExtension = umajin!;
-		if (!self._languageClient) {
+		if (!this._languageClient) {
 			vscode.window.showErrorMessage('Autoformatting all Umajin files requires Umajin language server to be connected.');
 			return;
 		}
 
 		vscode.window.showInformationMessage('Do you want to autoformat all files in the project or to open files only?', 'The whole project', 'Open files only')
 			.then(answer => {
-				self._languageClient!.sendRequest('workspace/executeCommand',
+				this._languageClient!.sendRequest('workspace/executeCommand',
 					{
 						'command': 'autoformatAll',
 						'arguments':
@@ -2666,10 +2745,9 @@ class UmajinExtension {
 			vscode.workspace.getConfiguration().get('umajin.update.channels', this._channels);
 	}
 
-	public static stopLanguageClient(): Promise<boolean> {
+	public stopLanguageClient(): Promise<boolean> {
 		return new Promise<boolean>((resolve, reject) => {
-			const self: UmajinExtension = umajin!;
-			self.stopLanguageClientImpl().then((noop) => {
+			this.stopLanguageClientImpl().then((noop) => {
 				if (noop) {
 					vscode.window.showInformationMessage('Umajin Language Client was not running.');
 				} else {
@@ -2677,7 +2755,7 @@ class UmajinExtension {
 				}
 				resolve(noop);
 			}, (reason) => {
-				vscode.window.showErrorMessage('Cannot stop Umajin Language Client: ' + reason);
+				vscode.window.showErrorMessage(`Cannot stop Umajin Language Client: ${reason}`);
 				reject(reason);
 			});
 		});
@@ -2685,17 +2763,17 @@ class UmajinExtension {
 
 	public stopLanguageClientImpl(): Promise<boolean> {
 		return new Promise<boolean>((resolve, reject) => {
-			console.log('Stopping language client...');
+			this.log('Stopping language client...');
 			if (this._languageClient) {
 				this._languageClient.stop().then(() => {
-					console.log('Language client stopped');
+					this.log('Language client stopped');
 					this._deleteLanguageClient();
 					resolve(false);
 				}, (reason) => {
-					console.log('Failed to stop the Language client: ' + reason);
+					this.logError(`Failed to stop the Language client: ${reason}`);
 					reject(reason);
 				}).catch((reason) => {
-					console.log('Exception caught while trying to stop the Language client: ' + reason);
+					this.logError(`Exception caught while trying to stop the Language client: ${reason}`);
 					reject(reason);
 				});
 			} else {
@@ -2710,10 +2788,9 @@ class UmajinExtension {
 		this._serverVersion = '';
 	}
 
-	public static startLanguageClient(): Promise<boolean> {
+	public startLanguageClient(): Promise<boolean> {
 		return new Promise<boolean>((resolve, reject) => {
-			const self: UmajinExtension = umajin!;
-			self.startLanguageClientImpl().then((noop) => {
+			this.startLanguageClientImpl().then((noop) => {
 				if (noop) {
 					vscode.window.showInformationMessage('Umajin Language Client was running.');
 				} else {
@@ -2721,7 +2798,7 @@ class UmajinExtension {
 				}
 				resolve(noop);
 			}, (reason) => {
-				vscode.window.showErrorMessage('Cannot start Umajin Language Client: ' + reason);
+				vscode.window.showErrorMessage(`Cannot start Umajin Language Client: ${reason}`);
 				reject(reason);
 			});
 		});
@@ -2729,7 +2806,7 @@ class UmajinExtension {
 
 	public startLanguageClientImpl(): Promise<boolean> {
 		return new Promise<boolean>((resolve, reject) => {
-			console.log('Starting language client...');
+			this.log('Starting language client...');
 			if (!this._languageClient) {
 				const serverOptions: languageClient.ServerOptions = {
 					command: (this._languageServerCommand !== '') ? this._languageServerCommand : this._umajinlsFullPath,
@@ -2770,16 +2847,15 @@ class UmajinExtension {
 								}
 							}
 						}
-						console.log('Language client started');
+						this.log('Language client started');
 						resolve(false);
 					}, (reason) => {
-						console.log('Failed to start the Language client: ' + reason);
+						this.logError(`Failed to start the Language client: ${reason}`);
 						reject(reason);
 					})
 					.catch(error => {
-						console.error(error);
+						this.logError(`Exception caught while trying to start the Language client: ${error}`);
 						this._deleteLanguageClient();
-						console.log('Exception caught while trying to start the Language client: ' + error);
 						reject(error);
 					});
 			} else {
@@ -2788,9 +2864,9 @@ class UmajinExtension {
 		});
 	}
 
-	public static restartLanguageClient() {
-		UmajinExtension.stopLanguageClient().finally(() => {
-			UmajinExtension.startLanguageClient();
+	public restartLanguageClient() {
+		this.stopLanguageClient().finally(() => {
+			this.startLanguageClient();
 		});
 	}
 
@@ -2804,27 +2880,23 @@ class UmajinExtension {
 		});
 	}
 
-	public static statusLanguageClient() {
-		const self: UmajinExtension = umajin!;
-		vscode.window.showInformationMessage(self._languageClient
+	public statusLanguageClient() {
+		vscode.window.showInformationMessage(this._languageClient
 			? 'Umajin Language Client is running.'
 			: 'Umajin Language Client is not running.');
 	}
 
-	public static updateEngine() {
+	public updateEngine() {
 		if (vscode.workspace.workspaceFolders === undefined) {
 			vscode.window.showErrorMessage('Updating Umajin engine requires Umajin workspace to be open.');
 			return;
 		}
 
-		const self: UmajinExtension = umajin!;
-		new EngineUpdateContext(self);
+		new EngineUpdateContext(this);
 	}
 
-	public static async openEngineHelp(args: Object) {
-		const self: UmajinExtension = umajin!;
-
-		if (self._serverVersion === '') {
+	public async openEngineHelp(args: Object) {
+		if (this._serverVersion === '') {
 			vscode.window.showErrorMessage('Cannot generate link for engine help: version unknown');
 		}
 		else {
@@ -2858,32 +2930,32 @@ class UmajinExtension {
 				}
 			}
 
-			const local: string = self._engineHelpLocalPath;
+			const local: string = this._engineHelpLocalPath;
 			const remote: string =
-				(self._engineHelpRemoteSecure ? 'https' : 'http') + '://' +
-				self._engineHelpRemoteServer + '/' + self._serverVersion;
+				(this._engineHelpRemoteSecure ? 'https' : 'http') + '://' +
+				this._engineHelpRemoteServer + '/' + this._serverVersion;
 
-			const path: string = '/library/' + type + '.html';
+			const path: string = `/library/${type}.html`;
 
 			let useLocal: boolean = false;
 
-			let fullPath: string = makeAbsolute(self._wsPath, local, path);
+			let fullPath: string = makeAbsolute(this._wsPath, local, path);
 			if (fs.existsSync(fullPath)) {
-				if (self._engineHelpLocalIgnoreVersion) {
+				if (this._engineHelpLocalIgnoreVersion) {
 					useLocal = true;
 				}
 				else {
-					let versionCheckPath: string = makeAbsolute(self._wsPath, local, 'version.txt');
+					let versionCheckPath: string = makeAbsolute(this._wsPath, local, 'version.txt');
 					if (fs.existsSync(versionCheckPath)) {
 						const versionCheck: string = fs.readFileSync(versionCheckPath, 'utf-8');
-						if (versionCheck && versionCheck === self._serverVersion) {
+						if (versionCheck && versionCheck === this._serverVersion) {
 							useLocal = true;
 						}
 					}
 				}
 			}
 			if (useLocal) {
-				fullPath = 'file://' + fullPath;
+				fullPath = `file://${fullPath}`;
 			}
 			else {
 				fullPath = remote + path;
@@ -3010,6 +3082,8 @@ type NetRequestMap = {
 };
 
 class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
+	private _logChannel: vscode.OutputChannel;
+
 	private _wsPath: string;
 	private _collapseLongMessages: boolean;
 
@@ -3060,6 +3134,9 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 
 	public constructor() {
 		super();
+
+		this._logChannel = vscode.window.createOutputChannel("Umajin Debugger");
+
 		this._wsPath = umajin!.getWsPath();
 		this._collapseLongMessages = umajin!.getCollapseLongMessages();
 
@@ -3077,6 +3154,11 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 
 	override sendResponse(response: debugProtocol.DebugProtocol.Response): void {
 		super.sendResponse(response);
+	}
+
+	private _log(message: string) {
+		console.log(message);
+		this._logChannel.appendLine(message);
 	}
 
 	protected override initializeRequest(response: debugProtocol.DebugProtocol.InitializeResponse, args: debugProtocol.DebugProtocol.InitializeRequestArguments): void {
@@ -3318,7 +3400,7 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 
 		}
 		{
-			const e: debugProtocol.DebugProtocol.OutputEvent = new debugAdapter.OutputEvent(`Launching '${program} ${programArgs.join(' ')}'  ...\n`, 'console');
+			const e: debugProtocol.DebugProtocol.OutputEvent = new debugAdapter.OutputEvent(`Launching "${program} ${programArgs.join(' ')}"  ...\n`, 'console');
 			this.sendEvent(e);
 		}
 
@@ -3374,10 +3456,10 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 
 		this._netLogger = new net.Socket()
 			.on('connect', () => {
-				console.log('Net logger connected');
+				uds._log('Net logger connected');
 			})
 			.on('close', (hadError: boolean) => {
-				console.log('Net logger closed, hadError = ' + hadError);
+				uds._log(`Net logger closed, hadError: ${hadError}`);
 			})
 			.on('data', (data: Buffer) => {
 				if (uds._netLogStream) {
@@ -3697,24 +3779,24 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 					delete this._sentRequests[message.request_seq];
 				}
 				else {
-					console.log('Received message\'s request_seq didn\'t match any of saved requests');
+					this._log('Received message\'s request_seq didn\'t match any of saved requests');
 				}
 			}
 			else {
-				console.log('Received message does not have request_seq');
+				this._log('Received message does not have request_seq');
 			}
 		}
 		else if (message.type === 'event') {
 			this.sendEvent(message);
 		}
 		else if (message.type === 'request') {
-			console.log('Do not know how to process requests');
+			this._log('Do not know how to process requests');
 		}
 		else if (message.type !== undefined) {
-			console.log(`Do not know how to process message ${message.type}`);
+			this._log(`Do not know how to process message ${message.type}`);
 		}
 		else if (message.type !== undefined) {
-			console.log('Do not know how to process a message without type');
+			this._log('Do not know how to process a message without type');
 		}
 	}
 
