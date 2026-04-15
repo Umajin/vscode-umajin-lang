@@ -14,6 +14,12 @@
 
 - Improved performance
 
+## [1.9.1]
+
+### Improved
+
+- Logging
+
 ## [1.9.0] - 2026-04-14
 
 ### Added
