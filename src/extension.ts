@@ -14,7 +14,7 @@ import * as debugAdapter from '@vscode/debugadapter';
 import * as debugProtocol from '@vscode/debugprotocol';
 import * as languageClient from 'vscode-languageclient/node';
 
-import * as packageJson from './package.json';
+import * as packageJson from '../package.json';
 
 
 function reportFailure(message: string) {
