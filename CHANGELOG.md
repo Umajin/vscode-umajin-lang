@@ -20,6 +20,10 @@
 
 - Logging
 
+### Added
+
+- Symlink creation testing during the install/update process
+
 ## [1.9.0] - 2026-04-14
 
 ### Added
