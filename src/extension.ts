@@ -1092,7 +1092,7 @@ class EngineUpdateContext {
 				} else {
 					this._ext.log(`User selected: ${Array.from(this._selectedRunPlatforms).join(', ')}`);
 				}
-				this._selectChannel();
+				this._checkIfRedirectionIsNeeded();
 			});
 			runPlatformSelector.onDidHide(() => {
 				runPlatformSelector.dispose();
@@ -1101,8 +1101,72 @@ class EngineUpdateContext {
 		}
 	}
 
+	private _checkIfRedirectionIsNeeded() {
+		this._ext.log("Engine update step 8: Check if platform redirector is needed");
+		// find if there is going to be any clashes
+		{
+			const allBinaries = new Set<string>();
+			const addBinary = (platform: Platform, binary: Binary) => {
+				const filename: string = this._ext.getBundlePath(platform, binary);
+				if (allBinaries.has(filename)) {
+					this._needPlatformRedirector = true;
+				} else {
+					allBinaries.add(filename);
+				}
+			};
+			this._selectedDevPlatforms.forEach((platformName) => {
+				const platform: Platform = EngineUpdateContext.platforms.get(platformName)!;
+				addBinary(platform, Binary.LS);
+				if (this._withSimCross) {
+					addBinary(platform, Binary.Compiler);
+				}
+				this._selectedUIs.forEach((binary) => {
+					addBinary(platform, binary);
+				});
+			});
+			this._selectedRunPlatforms.forEach((platformName) => {
+				const platform: Platform = EngineUpdateContext.platforms.get(platformName)!;
+				this._selectedUIs.forEach((binary) => {
+					addBinary(platform, binary);
+				});
+			});
+		}
+
+		// test if we can create symlinks
+		if (this._needPlatformRedirector && nativePlatform.isWindows) {
+			const symlink: string = `${this._cacheFolder()}${path.sep}symlinktest`;
+			fs.rm(symlink, { recursive: true, force: true }, (errno) => {
+				if (errno !== null) {
+					this._ext.reportFailure(`Failed to test symlink creation: Failed to remove: ${errno}`);
+				} else {
+					fs.symlink('.', symlink, (errno) => {
+						if (errno !== null) {
+							if (errno.code === 'EPERM') {
+								this._ext.reportFailure('Selected installation will require creation of symlink and the current system setup prohibits them. Most probably because the developed mode is not turned on. To do it launch Settings, go to "System" > "For developers" and turn on the Developer Mode at the top.');
+								this._ext.reportFailure('Selected installation will require creation of symlink and the current system setup prohibits them. Most probably because the developed mode is not turned on. To do it launch Settings, go to "Update & Security" > "For developers" and turn on the Developer Mode at the top.');
+							} else {
+								this._ext.reportFailure(`Failed to test symlink creation: Failed to remove: ${errno}`);
+							}
+						} else {
+							fs.rm(symlink, { recursive: true, force: true }, (errno) => {
+								if (errno !== null) {
+									this._ext.reportFailure(`Failed to test symlink creation: Failed to cleanup: ${errno}`);
+								} else {
+									this._selectChannel();
+								}
+							});
+						}
+					});
+				}
+			});
+		} else {
+			this._selectChannel();
+		}
+	}
+
+
 	private _selectChannel() {
-		this._ext.log("Engine update step 8: Ask user to select distribution channel");
+		this._ext.log("Engine update step 9: Ask user to select distribution channel");
 		const channelSelector: vscode.QuickPick<EngineUpdateChannelItem> = vscode.window.createQuickPick<EngineUpdateChannelItem>();
 		channelSelector.title = 'Installing Umajin Engine';
 		channelSelector.step = 5;
@@ -1129,7 +1193,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectSource() {
-		this._ext.log("Engine update step 9: Fetch and parse the distribution channel jobs");
+		this._ext.log("Engine update step 10: Fetch and parse the distribution channel jobs");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update: Scanning remote jobs',
@@ -1318,7 +1382,7 @@ class EngineUpdateContext {
 	}
 
 	private _selectJobSet() {
-		this._ext.log("Engine update step 10: Ask user to select the jobset");
+		this._ext.log("Engine update step 11: Ask user to select the jobset");
 		const fullSets = new Map<number, Set<string>>();
 		this._zips.forEach((zipsL1, description) => {
 			this._ext.log(`Job description: ${description}`);
@@ -1387,36 +1451,7 @@ class EngineUpdateContext {
 	}
 
 	private _download() {
-		this._ext.log("Engine update step 11: Download the job artifacts");
-		// find if there is going to be any clashes
-		{
-			const allBinaries = new Set<string>();
-			const addBinary = (platform: Platform, binary: Binary) => {
-				const filename: string = this._ext.getBundlePath(platform, binary);
-				if (allBinaries.has(filename)) {
-					this._needPlatformRedirector = true;
-				} else {
-					allBinaries.add(filename);
-				}
-			};
-			this._selectedDevPlatforms.forEach((platformName) => {
-				const platform: Platform = EngineUpdateContext.platforms.get(platformName)!;
-				addBinary(platform, Binary.LS);
-				if (this._withSimCross) {
-					addBinary(platform, Binary.Compiler);
-				}
-				this._selectedUIs.forEach((binary) => {
-					addBinary(platform, binary);
-				});
-			});
-			this._selectedRunPlatforms.forEach((platformName) => {
-				const platform: Platform = EngineUpdateContext.platforms.get(platformName)!;
-				this._selectedUIs.forEach((binary) => {
-					addBinary(platform, binary);
-				});
-			});
-		}
-
+		this._ext.log("Engine update step 12: Download the job artifacts");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update (1/4): Downloading artifacts',
@@ -1500,7 +1535,7 @@ class EngineUpdateContext {
 	}
 
 	private _deleteOld() {
-		this._ext.log("Engine update step 12: Delete the old installation");
+		this._ext.log("Engine update step 13: Delete the old installation");
 		this._ext.stopLanguageClientImpl().finally(() => {
 			vscode.window.withProgress<void>({
 				location: vscode.ProgressLocation.Notification,
@@ -1559,7 +1594,7 @@ class EngineUpdateContext {
 	}
 
 	private _checkInfrastructure() {
-		this._ext.log("Engine update step 13: Check and fix the generated infrastructure");
+		this._ext.log("Engine update step 14: Check and fix the generated infrastructure");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update (3/4): Checking infrastructure...',
@@ -1887,7 +1922,7 @@ class EngineUpdateContext {
 	}
 
 	private _installNew() {
-		this._ext.log("Engine update step 14: Unpack the artifacts");
+		this._ext.log("Engine update step 15: Unpack the artifacts");
 		vscode.window.withProgress<void>({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Engine update (4/4): Unpacking artifacts...',
@@ -2100,7 +2135,7 @@ class EngineUpdateContext {
 	}
 
 	private _cleanUp() {
-		this._ext.log("Engine update step 15: Clean up the cache");
+		this._ext.log("Engine update step 16: Clean up the cache");
 		fs.rm(this._cacheFolder(), { recursive: true, force: true }, (errno) => {
 			if (errno !== null) {
 				this._ext.logError(`Failed to delete engine update cache folder: ${errno}`);
@@ -2112,7 +2147,7 @@ class EngineUpdateContext {
 	}
 
 	private _generateStdlib() {
-		this._ext.log("Engine update step 16: Generate stdlib.u");
+		this._ext.log("Engine update step 17: Generate stdlib.u");
 		if (this._selectedDevPlatforms.has(nativePlatform.nameForCompiler) || this._selectedRunPlatforms.has(nativePlatform.nameForCompiler)) {
 			this._ext.generateStdLibTry(this._selectedUIs.has(Binary.GUI), this._selectedUIs.has(Binary.CLI), (success) => {
 				this._ext.log(`stdlib.u is ${(success ? '' : 'NOT ')}generated`);
@@ -2125,7 +2160,7 @@ class EngineUpdateContext {
 	}
 
 	private _reportUpdateComplete() {
-		this._ext.log("Engine update step 17: Report the completion to user");
+		this._ext.log("Engine update step 18: Report the completion to user");
 		if (this._selectedDevPlatforms.has(nativePlatform.nameForCompiler)) {
 			this._ext.startLanguageClientImpl();
 		} else {
