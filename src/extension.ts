@@ -4,6 +4,7 @@ import * as childProcess from 'child_process';
 import * as fs from 'fs';
 import * as http from 'http';
 import * as net from 'net';
+import * as os from 'os';
 import * as path from 'path';
 import * as process from 'process';
 import * as semver from 'semver';
@@ -140,7 +141,7 @@ class Platform {
 
 };
 
-const nativePlatform: Platform = new Platform(process.platform, process.arch);
+const nativePlatform: Platform = new Platform(os.platform(), os.arch());
 
 
 const operatorSymbols: Record<string, string> = {
