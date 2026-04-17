@@ -1136,24 +1136,37 @@ class EngineUpdateContext {
 		// test if we can create symlinks
 		if (this._needPlatformRedirector && nativePlatform.isWindows) {
 			const symlink: string = `${this._cacheFolder()}${path.sep}symlinktest`;
-			fs.rm(symlink, { recursive: true, force: true }, (errno) => {
+			fs.mkdir(path.dirname(symlink), { recursive: true }, (errno) => {
 				if (errno !== null) {
-					this._ext.reportFailure(`Failed to test symlink creation: Failed to remove: ${errno}`);
+					this._ext.reportFailure(`Failed to test symlink creation: Failed to create folder: ${errno}`);
 				} else {
-					fs.symlink('.', symlink, (errno) => {
+					fs.rm(symlink, { recursive: true, force: true }, (errno) => {
 						if (errno !== null) {
-							if (errno.code === 'EPERM') {
-								this._ext.reportFailure('Selected installation will require creation of symlink and the current system setup prohibits them. Most probably because the developed mode is not turned on. To do it launch Settings, go to "System" > "For developers" and turn on the Developer Mode at the top.');
-								this._ext.reportFailure('Selected installation will require creation of symlink and the current system setup prohibits them. Most probably because the developed mode is not turned on. To do it launch Settings, go to "Update & Security" > "For developers" and turn on the Developer Mode at the top.');
-							} else {
-								this._ext.reportFailure(`Failed to test symlink creation: Failed to remove: ${errno}`);
-							}
+							this._ext.reportFailure(`Failed to test symlink creation: Failed to remove: ${errno}`);
 						} else {
-							fs.rm(symlink, { recursive: true, force: true }, (errno) => {
+							fs.symlink('.', symlink, (errno) => {
 								if (errno !== null) {
-									this._ext.reportFailure(`Failed to test symlink creation: Failed to cleanup: ${errno}`);
+									if (errno.code === 'EPERM') {
+										let breadcrumbs: string = '';
+										if (semver.gte(os.release(), '10.0.22000')) {
+											// Windows 11
+											breadcrumbs = '"System" > "For developers"';
+										} else {
+											// Windows 10
+											breadcrumbs = '"Update & Security" > "For developers"';
+										}
+										this._ext.reportFailure(`Selected installation will require creation of symlink and the current system setup prohibits them. Most probably because the developed mode is not turned on. To fix it, launch Settings, go to ${breadcrumbs} and turn on the Developer Mode at the top.`);
+									} else {
+										this._ext.reportFailure(`Failed to test symlink creation: Failed to remove: ${errno}`);
+									}
 								} else {
-									this._selectChannel();
+									fs.rm(symlink, { recursive: true, force: true }, (errno) => {
+										if (errno !== null) {
+											this._ext.reportFailure(`Failed to test symlink creation: Failed to cleanup: ${errno}`);
+										} else {
+											this._selectChannel();
+										}
+									});
 								}
 							});
 						}
