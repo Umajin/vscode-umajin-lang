@@ -2465,21 +2465,22 @@ class UmajinExtension {
 			}
 		}).then((rootFileUri) => {
 			if (rootFileUri && rootFileUri[0]) {
-				const rootFullPath: string = rootFileUri[0].fsPath;
-				const rootFilename: string = path.parse(rootFullPath).base;
-				const cwFilename: string = path.parse(rootFullPath).dir + path.sep + path.parse(rootFullPath).name + '.code-workspace';
+				const rootFullname: string = rootFileUri[0].fsPath;
+				const rootFullParsedPath: path.ParsedPath = path.parse(rootFullname);
+				const rootFilename: string = rootFullParsedPath.base;
+				const cwFilename: string = `${rootFullParsedPath.dir}${path.sep}${path.basename(rootFullParsedPath.dir)}--${rootFullParsedPath.name}.code-workspace`;
 
 				const writeFile = (callback: () => void) => {
 					fs.readFile(umajin!._context.asAbsolutePath('snippets/code-workspace.json'), 'utf-8', (errno, data) => {
 						if (errno) {
-							this.reportFailure(`Cannot read the snippet: ${errno}`);
+							this.reportFailure(`Cannot read the VSCode workspace file snippet: ${errno}`);
 						}
 						else {
 							fs.writeFile(cwFilename, (jsonParse(data)
 							['Umajin VSCode Workspace'].body as string[]).join('\n')
 								.replace('$0', rootFilename), (errno) => {
 									if (errno) {
-										this.reportFailure(`Cannot write Umajin VSCode workspace file: ${errno}`);
+										this.reportFailure(`Cannot write Umajin VSCode workspace file "${path.basename(cwFilename)}": ${errno}`);
 									}
 									else {
 										callback();
@@ -2494,18 +2495,24 @@ class UmajinExtension {
 				};
 
 				fs.access(cwFilename, fs.constants.R_OK, (errno) => {
-					if (errno === null) {
+					if (errno?.code === 'ENOENT') {
 						writeFile(openFile);
 					} else {
-						vscode.window.showInformationMessage(`File "${cwFilename}" already exists.\nDo you want to overwrite it?`, 'Yes', 'No')
+						vscode.window.showInformationMessage(`File "${path.basename(cwFilename)}" already exists.\nDo you want to overwrite it?`, 'Yes', 'No')
 							.then((answer) => {
 								switch (answer) {
 									case 'Yes':
-										writeFile(openFile);
+										fs.unlink(cwFilename, (errno) => {
+											if (errno !== null) {
+												this.reportFailure(`Cannot remove Umajin VSCode workspace file "${path.basename(cwFilename)}" before writing: ${errno}`);
+											} else {
+												writeFile(openFile);
+											}
+										});
 										break;
 
 									case 'No':
-										vscode.window.showInformationMessage(`Do you want to open "${cwFilename}" anyway?`, 'Yes', 'No')
+										vscode.window.showInformationMessage(`Do you want to open "${path.basename(cwFilename)}" anyway?`, 'Yes', 'No')
 											.then((answer) => {
 												switch (answer) {
 													case 'Yes':

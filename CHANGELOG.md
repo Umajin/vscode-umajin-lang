@@ -14,7 +14,17 @@
 
 - Improved performance
 
-## [1.9.1]
+## [1.9.2] - 2026-04-20
+
+### Fixed
+
+- Generation of the VSCode workspace file (was broken since version 1.9.0)
+
+### Improved
+
+- The name of a generated VSCode workspace file now includes the folder name to differentiate between multiple open projects as majority of them were named `start`.
+
+## [1.9.1] - 2026-04-17
 
 ### Improved
 
