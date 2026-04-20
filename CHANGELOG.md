@@ -14,6 +14,12 @@
 
 - Improved performance
 
+## [1.9.3] - 2026-04-21
+
+### Improved
+
+- Failed symlink test message to cover more variations
+
 ## [1.9.2] - 2026-04-20
 
 ### Fixed

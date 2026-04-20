@@ -1147,15 +1147,17 @@ class EngineUpdateContext {
 							fs.symlink('.', symlink, (errno) => {
 								if (errno !== null) {
 									if (errno.code === 'EPERM') {
-										let breadcrumbs: string = '';
-										if (semver.gte(os.release(), '10.0.22000')) {
-											// Windows 11
-											breadcrumbs = '"System" > "For developers"';
-										} else {
-											// Windows 10
-											breadcrumbs = '"Update & Security" > "For developers"';
-										}
-										this._ext.reportFailure(`Selected installation will require creation of symlink and the current system setup prohibits them. Most probably because the developed mode is not turned on. To fix it, launch Settings, go to ${breadcrumbs} and turn on the Developer Mode at the top.`);
+										this._ext.reportFailure(
+											'Selected installation will require creation of symlinks '
+											+ 'and the current system setup prohibits them. Most '
+											+ 'probably because the Developer Mode is not turned '
+											+ 'on. To fix it, launch Windows Settings, search for the '
+											+ 'Developer Mode and make sure it is turned on. It can '
+											+ 'be located at: '
+											+ '   • "Update & Security" > "For developers",       '
+											+ '   • "System" > "For developers",                  '
+											+ '   • "System" > "Advanced",                        '
+											+ '   • or somewhere else.');
 									} else {
 										this._ext.reportFailure(`Failed to test symlink creation: Failed to remove: ${errno}`);
 									}
