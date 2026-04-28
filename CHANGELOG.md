@@ -14,6 +14,12 @@
 
 - Improved performance
 
+## [1.9.4] - 2026-04-28
+
+### Added
+
+- Support for environment variables in launch configuration
+
 ## [1.9.3] - 2026-04-21
 
 ### Improved

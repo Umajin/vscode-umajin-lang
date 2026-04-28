@@ -2,7 +2,7 @@
 	"name": "umajin-lang",
 	"displayName": "Umajin Language",
 	"description": "Provide Umajin language support for Visual Studio Code.",
-	"version": "1.9.3",
+	"version": "1.9.4",
 	"license": "MIT",
 	"publisher": "umajin-kuzmashapran",
 	"private": false,
@@ -536,6 +536,22 @@
 							"arguments": {
 								"type": "array",
 								"description": "Extra arguments",
+								"default": [],
+								"items": {
+									"type": "string"
+								}
+							},
+							"env": {
+								"type": "object",
+								"description": "Modifications & additions to the environment variables",
+								"default": {},
+								"items": {
+									"type": "string"
+								}
+							},
+							"envUnset": {
+								"type": "array",
+								"description": "Removals from the environment variables",
 								"default": [],
 								"items": {
 									"type": "string"

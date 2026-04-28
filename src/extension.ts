@@ -20,6 +20,8 @@ import * as packageJson from '../package.json';
 
 interface ILaunchRequestArguments extends debugProtocol.DebugProtocol.LaunchRequestArguments {
 	arguments?: string[];
+	env?: { [key: string]: string };
+	envUnset?: string[];
 	logFormatEngineSourceInfo?: boolean,
 	logFormatThread?: boolean,
 	logFormatTimestamp?: 'milli' | 'milli_float' | 'micro' | 'world_clock';
@@ -3457,6 +3459,19 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 			programArgs = programArgs.concat(launchRequestArgs.arguments);
 
 		}
+
+		let env: NodeJS.ProcessEnv = structuredClone(process.env); // has to be a deep copy, otherwise the changes propagate back and are not reset for the next run
+		if (launchRequestArgs.env !== undefined) {
+			for (const envName in launchRequestArgs.env!) {
+				env[envName] = launchRequestArgs.env[envName];
+			}
+		}
+		if (launchRequestArgs.envUnset !== undefined) {
+			for (const envName of launchRequestArgs.envUnset!) {
+				delete env[envName];
+			}
+		}
+
 		{
 			const e: debugProtocol.DebugProtocol.OutputEvent = new debugAdapter.OutputEvent(`Launching "${program} ${programArgs.join(' ')}"  ...\n`, 'console');
 			this.sendEvent(e);
@@ -3465,6 +3480,7 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 		const child = childProcess.spawn(program, programArgs, {
 			detached: true,
 			cwd: this._wsPath,
+			env: env,
 			stdio: ['ignore', 'pipe', 'pipe']
 		})
 			.on('error', (err: Error) => {
