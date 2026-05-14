@@ -3649,10 +3649,7 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 	}
 
 	protected override async threadsRequest(response: debugProtocol.DebugProtocol.ThreadsResponse, request?: debugProtocol.DebugProtocol.Request) {
-		if (this._child || this._debuggerConnected) {
-			response.body = { threads: [{ id: 0, name: 'Umajin' }] };
-		}
-		this.sendResponse(response);
+		this._redirectToDebugger(response, request);
 	}
 
 	protected override async terminateThreadsRequest(response: debugProtocol.DebugProtocol.TerminateThreadsResponse, args: debugProtocol.DebugProtocol.TerminateThreadsArguments, request?: debugProtocol.DebugProtocol.Request) {
