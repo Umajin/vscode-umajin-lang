@@ -14,6 +14,12 @@
 
 - Improved performance
 
+## [1.9.6] - 2026-05-22
+
+### Fixed
+
+- Debugging using an engine older than 6.17.0 "Rotorua"
+
 ## [1.9.5] - 2026-05-15
 
 ### Added

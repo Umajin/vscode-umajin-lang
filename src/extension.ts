@@ -3166,6 +3166,7 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 
 	private _hasDebugger: boolean = false;
 	private _hasColoriseLog: boolean = false;
+	private _hasMTSupport: boolean = false;
 
 	private _debugger: net.Socket | null = null;
 
@@ -3247,6 +3248,7 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 					if (matched?.length === 2) {
 						this._hasDebugger = semver.gte(matched[1]!, '6.11.0'); // Levin
 						this._hasColoriseLog = semver.gte(matched[1]!, '6.14.0'); // Ohakune
+						this._hasMTSupport = semver.gte(matched[1]!, '6.17.0'); // Rotorua
 					}
 				}
 			}
@@ -3649,7 +3651,14 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 	}
 
 	protected override async threadsRequest(response: debugProtocol.DebugProtocol.ThreadsResponse, request?: debugProtocol.DebugProtocol.Request) {
-		this._redirectToDebugger(response, request);
+		if (this._hasMTSupport) {
+			this._redirectToDebugger(response, request);
+		} else {
+			if (this._child || this._debuggerConnected) {
+				response.body = { threads: [{ id: 0, name: 'Umajin' }] };
+			}
+			this.sendResponse(response);
+		}
 	}
 
 	protected override async terminateThreadsRequest(response: debugProtocol.DebugProtocol.TerminateThreadsResponse, args: debugProtocol.DebugProtocol.TerminateThreadsArguments, request?: debugProtocol.DebugProtocol.Request) {
