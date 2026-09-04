@@ -16,6 +16,10 @@
 
 ## [1.9.7] - 2026-09-??
 
+### Added
+
+- Support for new function object types syntax
+
 ## [1.9.6] - 2026-05-22
 
 ### Fixed

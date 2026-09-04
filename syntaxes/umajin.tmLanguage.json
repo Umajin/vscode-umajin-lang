@@ -129,7 +129,7 @@
 			"patterns": [
 				{
 					"name": "keyword.control",
-					"match": "\\b(?:include_once|case|constant|define|elseif|else|end|exitloop|if|in|instance|loop|method|nextloop|property|raise|return|scope|switch)\\b"
+					"match": "\\b(?:include_once|case|constant|define|elseif|else|end|exitloop|if|in|instance|loop|method|nextloop|property|raise|return|returns|scope|switch)\\b"
 				}
 			]
 		},
@@ -212,7 +212,7 @@
 			"patterns": [
 				{
 					"name": "keyword.operator",
-					"match": "\\.\\.?\\.?|!(?:~?=)?|[=*/%^]=?|~[=<>]?|\\+(?:\\+|=)?|-(?:-|=)?|&(?:&?=)?|\\|(?:\\|?=)?|<(?:~?=|<=?)?|>(?:~?=|>=?)?|\\[|\\]|[(){};,?]|::?"
+					"match": "\\.\\.?\\.?|!(?:~?=)?|[=*/%^]=?|~[=<>]?|\\+(?:\\+|=)?|-(?:-|=)?|&(?:&?=)?|\\|(?:\\|?=)?|<(?:~?=|<=?)?|>(?:~?=|>=?)?|\\[|\\]|[(){};,?]|::?|@"
 				}
 			]
 		},

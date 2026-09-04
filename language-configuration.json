@@ -38,12 +38,12 @@
 	],
 	"folding": {
 		"markers": {
-			"start": "^\\s*(?:(?:(?:define|if|instance|loop|method|scope|switch)\\b)|(?:property\\b[^=]*$))",
+			"start": "^\\s*(?:(?:(?:define|if|instance|loop|scope|switch)\\b)|(?:method\\s+\\w+)|(?:property\\b[^=]*$))",
 			"end": "^\\s*end\\b"
 		}
 	},
 	"indentationRules": {
-		"increaseIndentPattern": "^\\s*(?:(?:(?:define|if|instance|loop|method|scope|switch|case|elseif|else)\\b)|(?:property\\b[^=]*$))",
+		"increaseIndentPattern": "^\\s*(?:(?:(?:define|if|instance|loop|scope|switch|case|elseif|else)\\b)|(?:method\\s+\\w+)|(?:property\\b[^=]*$))",
 		"decreaseIndentPattern": "^\\s*(?:end|case|elseif|else)\\b"
 	}
 }
