@@ -24,6 +24,10 @@
 
 - Syntax highlighting schemes
 
+### Fixed
+
+- `platform-redirector` for Mac
+
 ## [1.9.6] - 2026-05-22
 
 ### Fixed

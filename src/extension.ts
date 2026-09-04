@@ -322,7 +322,7 @@ class ColorMixer {
 
 
 const platformRedirectorName: string = 'platform-redirector';
-const platformRedirectorContent: string = '"`dirname "$0"`/`uname -s`/`uname -m`/`basename "$0"`" "$@"\n';
+const platformRedirectorContent: string = '#!/bin/sh\n\n"`dirname "$0"`/`uname -s`/`uname -m`/`basename "$0"`" "$@"\n';
 
 
 enum Binary {
