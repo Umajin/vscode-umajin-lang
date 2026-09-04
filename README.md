@@ -91,192 +91,496 @@ This extension relies on Umajin Language Server to provide support using an up-t
 
 The following fragment lists all semantic scopes that are used by this extension and the Umajin Language Server.
 
-Make sure you specify colour scheme you are really using. This example uses "Default Light+".
+Light theme:
 
 ```json
 {
     "editor.tokenColorCustomizations": {
-        "[Light+]": {
-            "textMateRules": [
-                {
-                    "scope": "comment.block",
-                    "settings": {
-                        "foreground": "#8cbb3d",
-                        "fontStyle": "italic"
-                    }
-                },
-                {
-                    "scope": "comment.line.double-slash",
-                    "settings": {
-                        "foreground": "#8cbb3d",
-                        "fontStyle": "italic"
-                    }
-                },
-                {
-                    "scope": "constant.language",
-                    "settings": {
-                        "foreground": "#84660a",
-                        "fontStyle": "bold"
-                    }
-                },
-                {
-                    "scope": "constant.numeric.floating-point",
-                    "settings": {
-                        "foreground": "#ca693c"
-                    }
-                },
-                {
-                    "scope": "constant.numeric.binary",
-                    "settings": {
-                        "foreground": "#93b81c"
-                    }
-                },
-                {
-                    "scope": "constant.numeric.octal",
-                    "settings": {
-                        "foreground": "#e67848"
-                    }
-                },
-                {
-                    "scope": "constant.numeric.decimal",
-                    "settings": {
-                        "foreground": "#a7922e"
-                    }
-                },
-                {
-                    "scope": "constant.numeric.hexadecimal",
-                    "settings": {
-                        "foreground": "#91930d"
-                    }
-                },
-                {
-                    "scope": "constant.other.user-defined",
-                    "settings": {
-                        "foreground": "#84660a"
-                    }
-                },
-                {
-                    "scope": "entity.name.type.class",
-                    "settings": {
-                        "foreground": "#5a0095",
-                        "fontStyle": "bold"
-                    }
-                },
-                {
-                    "scope": "entity.name.function",
-                    "settings": {
-                        "foreground": "#0000b2"
-                    }
-                },
-                {
-                    "scope": "entity.name.function.virtual",
-                    "settings": {
-                        "fontStyle": "italic"
-                    }
-                },
-                {
-                    "scope": "keyword.control",
-                    "settings": {
-                        "foreground": "#801702",
-                        "fontStyle": "bold"
-                    }
-                },
-                {
-                    "scope": "keyword.operator",
-                    "settings": {
-                        "foreground": "#000000",
-                        "fontStyle": ""
-                    }
-                },
-                {
-                    "scope": "string.quoted.double",
-                    "settings": {
-                        "foreground": "#808080"
-                    }
-                },
-                {
-                    "scope": "string.quoted.single",
-                    "settings": {
-                        "foreground": "#808080"
-                    }
-                },
-                {
-                    "scope": "string.quoted.other.backtick",
-                    "settings": {
-                        "foreground": "#808080"
-                    }
-                },
-                {
-                    "scope": "meta.disabled",
-                    "settings": {
-                        "foreground": "#c0c0c0"
-                    }
-                },
-                {
-                    "scope": "meta.preprocessor",
-                    "settings": {
-                        "foreground": "#d9341a",
-                        "fontStyle": ""
-                    }
-                },
-                {
-                    "scope": "support.type.primitive",
-                    "settings": {
-                        "foreground": "#964cbf",
-                        "fontStyle": "bold"
-                    }
-                },
-                {
-                    "scope": "support.type.utility",
-                    "settings": {
-                        "foreground": "#a74f89",
-                        "fontStyle": "bold"
-                    }
-                },
-                {
-                    "scope": "variable.function",
-                    "settings": {
-                        "foreground": "#0000b2"
-                    }
-                },
-                {
-                    "scope": "variable.function.virtual",
-                    "settings": {
-                        "fontStyle": "italic"
-                    }
-                },
-                {
-                    "scope": "variable",
-                    "settings": {
-                        "foreground": "#0040c0"
-                    }
-                },
-                {
-                    "scope": "variable.other.local",
-                    "settings": {
-                        "foreground": "#33a6ef"
-                    }
-                },
-                {
-                    "scope": "variable.other.global",
-                    "settings": {
-                        "foreground": "#1559ef"
-                    }
-                },
-                {
-                    "scope": "variable.other.property",
-                    "settings": {
-                        "foreground": "#106b95"
-                    }
-                },
-                {
-                    "scope": "variable.parameter",
-                    "settings": {
-                        "foreground": "#092e64"
-                    }
+        "textMateRules": [
+            {
+                "scope": "comment.block",
+                "settings": {
+                    "fontStyle": "italic",
+                    "foreground": "#b3b3b3" // 0° 0% 70%
                 }
-            ]
-        }
+            },
+            {
+                "scope": "comment.line.double-slash",
+                "settings": {
+                    "fontStyle": "italic",
+                    "foreground": "#999999" // 0° 0% 60%
+                }
+            },
+            {
+                "scope": "constant.language",
+                "settings": {
+                    "fontStyle": "bold",
+                    "foreground": "#8c8c20" // 60° 75% 50%
+                }
+            },
+            {
+                "scope": "constant.numeric.floating-point",
+                "settings": {
+                    "foreground": "#aa7c20" // 40° 75% 50%
+                }
+            },
+            {
+                "scope": "constant.numeric.integral.binary",
+                "settings": {
+                    "foreground": "#bf6b41" // 20° 50% 50%
+                }
+            },
+            {
+                "scope": "constant.numeric.integral.octal",
+                "settings": {
+                    "foreground": "#ff5703" // 20° 100% 50%
+                }
+            },
+            {
+                "scope": "constant.numeric.integral.decimal",
+                "settings": {
+                    "foreground": "#c17120" // 30° 75% 50%
+                }
+            },
+            {
+                "scope": "constant.numeric.integral.hexadecimal",
+                "settings": {
+                    "foreground": "#ab3f09" // 20° 90% 35%
+                }
+            },
+            {
+                "scope": "constant.other.user-defined",
+                "settings": {
+                    "foreground": "#8c8c20" // 60° 75% 50%
+                }
+            },
+            {
+                "scope": "entity.name.function",
+                "settings": {
+                    "foreground": "#8627e6" // 270° 85% 35%
+                }
+            },
+            {
+                "scope": "entity.name.function.virtual",
+                "settings": {
+                    "fontStyle": "italic"
+                }
+            },
+            {
+                "scope": "entity.name.type",
+                "settings": {
+                    "fontStyle": "bold",
+                    "foreground": "#3852d6" // 230° 75% 35%
+                }
+            },
+            {
+                "scope": "keyword.control",
+                "settings": {
+                    "fontStyle": "bold",
+                    "foreground": "#934141" // 0° 35% 35%
+                }
+            },
+            {
+                "scope": "keyword.operator",
+                "settings": {
+                    "fontStyle": "",
+                    "foreground": "#6e0d5e" // 310° 75% 20%
+                }
+            },
+            {
+                "scope": "meta.disabled",
+                "settings": {
+                    "foreground": "#c6ae97" // 30° 25% 70%
+                }
+            },
+            {
+                "scope": "meta.preprocessor",
+                "settings": {
+                    "fontStyle": "",
+                    "foreground": "#e3358c" // 330° 80% 45%
+                }
+            },
+            {
+                "scope": "string.quoted.double",
+                "settings": {
+                    "foreground": "#1a8d66" // 160° 75% 40%
+                }
+            },
+            {
+                "scope": "string.quoted.single",
+                "settings": {
+                    "foreground": "#1a9c1a" // 120° 75% 40%
+                }
+            },
+            {
+                "scope": "string.quoted.other.backtick",
+                "settings": {
+                    "foreground": "#4d811a" // 90° 75% 40%
+                }
+            },
+            {
+                "scope": "support.type.primitive",
+                "settings": {
+                    "fontStyle": "bold",
+                    "foreground": "#288fa4" // 190° 65% 35%
+                }
+            },
+            {
+                "scope": "support.type.utility",
+                "settings": {
+                    "fontStyle": "bold",
+                    "foreground": "#166f9b" // 200° 75% 35%
+                }
+            },
+            {
+                "scope": "variable.function",
+                "settings": {
+                    "foreground": "#8627e6"
+                }
+            },
+            {
+                "scope": "variable.function.virtual",
+                "settings": {
+                    "fontStyle": "italic"
+                }
+            },
+            {
+                "scope": "variable.other.local",
+                "settings": {
+                    "foreground": "#4949d6" // 240° 75% 35%
+                }
+            },
+            {
+                "scope": "variable.other.global",
+                "settings": {
+                    "foreground": "#626bc7" // 235° 60% 45%
+                }
+            },
+            {
+                "scope": "variable.other.member",
+                "settings": {
+                    "foreground": "#2185ea" // 210° 85% 45%
+                }
+            },
+            {
+                "scope": "variable.parameter",
+                "settings": {
+                    "foreground": "#4949d6",
+                    "fontStyle": "italic"
+                }
+            },
+            // fallback
+            {
+                "scope": "variable",
+                "settings": {
+                    "foreground": "#1919ff" // 240° 100% 20%
+                }
+            },
+            // compatibility
+            {
+                "scope": "constant.numeric.binary",
+                "settings": {
+                    "foreground": "#bf6b41"
+                }
+            },
+            {
+                "scope": "constant.numeric.octal",
+                "settings": {
+                    "foreground": "#ff5703"
+                }
+            },
+            {
+                "scope": "constant.numeric.decimal",
+                "settings": {
+                    "foreground": "#c17120"
+                }
+            },
+            {
+                "scope": "constant.numeric.hexadecimal",
+                "settings": {
+                    "foreground": "#ab3f09"
+                }
+            },
+            {
+                "scope": "entity.name",
+                "settings": {
+                    "foreground": "#3852d6"
+                }
+            },
+            {
+                "scope": "keyword",
+                "settings": {
+                    "fontStyle": "bold",
+                    "foreground": "#934141"
+                }
+            },
+            {
+                "scope": "support.other.disabled-code",
+                "settings": {
+                    "foreground": "#c6ae97"
+                }
+            },
+            {
+                "scope": "support.other.preprocessor",
+                "settings": {
+                    "fontStyle": "",
+                    "foreground": "#e3358c"
+                }
+            },
+            {
+                "scope": "variable.other.property",
+                "settings": {
+                    "foreground": "#2185ea"
+                }
+            }
+        ]
+    }
+}
+```
+
+Dark theme:
+
+```json
+{
+    "editor.tokenColorCustomizations": {
+        "textMateRules": [
+            {
+                "scope": "comment.block",
+                "settings": {
+                    "fontStyle": "italic",
+                    "foreground": "#4d4d4d" // 0° 0% 30%
+                }
+            },
+            {
+                "scope": "comment.line.double-slash",
+                "settings": {
+                    "fontStyle": "italic",
+                    "foreground": "#666666" // 0° 0% 40%
+                }
+            },
+            {
+                "scope": "constant.language",
+                "settings": {
+                    "fontStyle": "bold",
+                    "foreground": "#8c8c20" // 60° 75% 50%
+                }
+            },
+            {
+                "scope": "constant.numeric.floating-point",
+                "settings": {
+                    "foreground": "#aa7c20" // 40° 75% 50%
+                }
+            },
+            {
+                "scope": "constant.numeric.integral.binary",
+                "settings": {
+                    "foreground": "#bf6b41" // 20° 50% 50%
+                }
+            },
+            {
+                "scope": "constant.numeric.integral.octal",
+                "settings": {
+                    "foreground": "#ff5703" // 20° 100% 50%
+                }
+            },
+            {
+                "scope": "constant.numeric.integral.decimal",
+                "settings": {
+                    "foreground": "#c17120" // 30° 75% 50%
+                }
+            },
+            {
+                "scope": "constant.numeric.integral.hexadecimal",
+                "settings": {
+                    "foreground": "#f68c57" // 20° 90% 65%
+                }
+            },
+            {
+                "scope": "constant.other.user-defined",
+                "settings": {
+                    "foreground": "#8c8c20" // 60° 75% 50%
+                }
+            },
+            {
+                "scope": "entity.name.function",
+                "settings": {
+                    "foreground": "#be8bf2" // 270° 85% 65%
+                }
+            },
+            {
+                "scope": "entity.name.function.virtual",
+                "settings": {
+                    "fontStyle": "italic"
+                }
+            },
+            {
+                "scope": "entity.name.type",
+                "settings": {
+                    "fontStyle": "bold",
+                    "foreground": "#61bce9" // 200° 75% 65%
+                }
+            },
+            {
+                "scope": "keyword.control",
+                "settings": {
+                    "fontStyle": "bold",
+                    "foreground": "#c59898" // 0° 35% 65%
+                }
+            },
+            {
+                "scope": "keyword.operator",
+                "settings": {
+                    "fontStyle": "",
+                    "foreground": "#d9c4d5" // 310° 25% 80%
+                }
+            },
+            {
+                "scope": "meta.disabled",
+                "settings": {
+                    "foreground": "#5a4a39" // 30° 25% 30%
+                }
+            },
+            {
+                "scope": "meta.preprocessor",
+                "settings": {
+                    "fontStyle": "",
+                    "foreground": "#ed7eb6" // 330° 80% 65%
+                }
+            },
+            {
+                "scope": "string.quoted.double",
+                "settings": {
+                    "foreground": "#26d39a" // 160° 75% 60%
+                }
+            },
+            {
+                "scope": "string.quoted.single",
+                "settings": {
+                    "foreground": "#2ce62c" // 120° 75% 60%
+                }
+            },
+            {
+                "scope": "string.quoted.other.backtick",
+                "settings": {
+                    "foreground": "#74c226" // 90° 75% 60%
+                }
+            },
+            {
+                "scope": "support.type.primitive",
+                "settings": {
+                    "fontStyle": "bold",
+                    "foreground": "#5bc2d7" // 190° 55% 65%
+                }
+            },
+            {
+                "scope": "support.type.utility",
+                "settings": {
+                    "fontStyle": "bold",
+                    "foreground": "#61bce9" // 200° 75% 65%
+                }
+            },
+            {
+                "scope": "variable.function",
+                "settings": {
+                    "foreground": "#be8bf2"
+                }
+            },
+            {
+                "scope": "variable.function.virtual",
+                "settings": {
+                    "fontStyle": "italic"
+                }
+            },
+            {
+                "scope": "variable.other.local",
+                "settings": {
+                    "foreground": "#9d9de9" // 240° 75% 65%
+                }
+            },
+            {
+                "scope": "variable.other.global",
+                "settings": {
+                    "foreground": "#7f86d1" // 235° 60% 55%
+                }
+            },
+            {
+                "scope": "variable.other.member",
+                "settings": {
+                    "foreground": "#499bee" // 210° 85% 55%
+                }
+            },
+            {
+                "scope": "variable.parameter",
+                "settings": {
+                    "foreground": "#9d9de9",
+                    "fontStyle": "italic"
+                }
+            },
+            // fallback
+            {
+                "scope": "variable",
+                "settings": {
+                    "foreground": "#c5c5ff" // 240° 100% 80%
+                }
+            },
+            // compatibility
+            {
+                "scope": "constant.numeric.binary",
+                "settings": {
+                    "foreground": "#bf6b41"
+                }
+            },
+            {
+                "scope": "constant.numeric.octal",
+                "settings": {
+                    "foreground": "#ff5703"
+                }
+            },
+            {
+                "scope": "constant.numeric.decimal",
+                "settings": {
+                    "foreground": "#c17120"
+                }
+            },
+            {
+                "scope": "constant.numeric.hexadecimal",
+                "settings": {
+                    "foreground": "#f68c57"
+                }
+            },
+            {
+                "scope": "entity.name",
+                "settings": {
+                    "foreground": "#94a2e9"
+                }
+            },
+            {
+                "scope": "keyword",
+                "settings": {
+                    "fontStyle": "bold",
+                    "foreground": "#c59898"
+                }
+            },
+            {
+                "scope": "support.other.disabled-code",
+                "settings": {
+                    "foreground": "#5a4a39"
+                }
+            },
+            {
+                "scope": "support.other.preprocessor",
+                "settings": {
+                    "fontStyle": "",
+                    "foreground": "#ed7eb6"
+                }
+            },
+            {
+                "scope": "variable.other.property",
+                "settings": {
+                    "foreground": "#499bee"
+                }
+            }
+        ]
     }
 }
 ```

@@ -20,6 +20,10 @@
 
 - Support for new function object types syntax
 
+### Improved
+
+- Syntax highlighting schemes
+
 ## [1.9.6] - 2026-05-22
 
 ### Fixed

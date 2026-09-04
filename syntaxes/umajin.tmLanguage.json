@@ -166,7 +166,7 @@
 		"hex-literal" : {
 			"patterns": [
 				{
-					"name": "constant.numeric.hexadecimal",
+					"name": "constant.numeric.integral.hexadecimal",
 					"match": "0x\\h(?:_?\\h)*"
 				}
 			]
@@ -175,7 +175,7 @@
 		"bin-literal" : {
 			"patterns": [
 				{
-					"name": "constant.numeric.binary",
+					"name": "constant.numeric.integral.binary",
 					"match": "0b[01](?:_?[01])*"
 				}
 			]
@@ -184,7 +184,7 @@
 		"oct-literal" : {
 			"patterns": [
 				{
-					"name": "constant.numeric.octal",
+					"name": "constant.numeric.integral.octal",
 					"match": "0o[0-7](?:_?[0-7])*"
 				}
 			]
@@ -202,7 +202,7 @@
 		"dec-literal" : {
 			"patterns": [
 				{
-					"name": "constant.numeric.decimal",
+					"name": "constant.numeric.integral.decimal",
 					"match": "(?:[1-9](?:_?\\d)*|0)(?!\\.)"
 				}
 			]
