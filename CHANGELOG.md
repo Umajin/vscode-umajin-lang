@@ -22,6 +22,8 @@
 
 - A way to redirect log to a file
 
+- Separate "engineArguments" and "scriptArguments" in launch configuration
+
 ### Improved
 
 - Syntax highlighting schemes

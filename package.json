@@ -536,6 +536,23 @@
 							"arguments": {
 								"type": "array",
 								"description": "Extra arguments",
+								"deprecationMessage": "This launch option is deprecated and will be removed in a future release. Use \"engineArguments\" and \"scriptArguments\" instead.",
+								"default": [],
+								"items": {
+									"type": "string"
+								}
+							},
+							"engineArguments": {
+								"type": "array",
+								"description": "Extra Umajin engine arguments",
+								"default": [],
+								"items": {
+									"type": "string"
+								}
+							},
+							"scriptArguments": {
+								"type": "array",
+								"description": "Script arguments",
 								"default": [],
 								"items": {
 									"type": "string"

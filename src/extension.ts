@@ -20,6 +20,8 @@ import * as packageJson from '../package.json';
 
 interface ILaunchRequestArguments extends debugProtocol.DebugProtocol.LaunchRequestArguments {
 	arguments?: string[];
+	engineArguments?: string[];
+	scriptArguments?: string[];
 	env?: { [key: string]: string };
 	envUnset?: string[];
 	logFormatEngineSourceInfo?: boolean,
@@ -3431,36 +3433,60 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 		}
 
 
+		const checkArg = (arg: string): boolean => {
+			const match = arg.match(/^(-(?:(?:-[A-Za-z0-9_]+)+|[A-Za-z]))(?:=.*)?$/);
+			if (match !== null) {
+				const argKey = match[1]!;
+				if (UmajinDebugSession._specialArgs.has(argKey)) {
+					{
+						const event: debugProtocol.DebugProtocol.OutputEvent = new debugAdapter.OutputEvent(
+							`Umajin arguments error: argument "${argKey}" cannot be used in launch configuration\n`,
+							'console');
+						uds.sendEvent(event);
+					}
+
+					uds.sendEvent(new debugAdapter.TerminatedEvent());
+
+					this._child = null;
+
+					this.shutdown();
+
+					return false;
+				}
+			}
+			return true;
+		}
+
+		if (launchRequestArgs.engineArguments !== undefined) {
+			for (const arg of launchRequestArgs.engineArguments!) {
+				if (!checkArg(arg)) {
+					return;
+				}
+			}
+			programArgs = programArgs.concat(launchRequestArgs.engineArguments);
+		}
+
+		let haveArgSeparator: boolean = false;
 		if (launchRequestArgs.arguments !== undefined) {
 			for (const arg of launchRequestArgs.arguments!) {
-				const match = arg.match(/^(-(?:(?:-[A-Za-z0-9_]+)+|[A-Za-z]))(?:=.*)?$/);
-				if (match !== null) {
-					const argKey = match[1]!;
-					if (UmajinDebugSession._specialArgs.has(argKey)) {
-						{
-							const event: debugProtocol.DebugProtocol.OutputEvent = new debugAdapter.OutputEvent(
-								`Umajin arguments error: argument "${argKey}" cannot be used in launch configuration\n`,
-								'console');
-							uds.sendEvent(event);
-						}
-
-						uds.sendEvent(new debugAdapter.TerminatedEvent());
-
-						this._child = null;
-
-						this.shutdown();
-
-						return;
-					}
+				if (!checkArg(arg)) {
+					return;
 				}
 				if (arg === '--') {
+					haveArgSeparator = true
 					break;
 				}
 			}
-
 			programArgs = programArgs.concat(launchRequestArgs.arguments);
-
 		}
+
+		if (launchRequestArgs.scriptArguments !== undefined) {
+			if (!haveArgSeparator) {
+				programArgs.push('--');
+			}
+			programArgs = programArgs.concat(launchRequestArgs.scriptArguments);
+		}
+
 
 		let env: NodeJS.ProcessEnv = structuredClone(process.env); // has to be a deep copy, otherwise the changes propagate back and are not reset for the next run
 		if (launchRequestArgs.env !== undefined) {
