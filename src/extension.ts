@@ -2814,9 +2814,9 @@ class UmajinExtension {
 					vscode.window.showInformationMessage('Umajin Language Client is stopped.');
 				}
 				resolve(noop);
-			}, (reason) => {
-				vscode.window.showErrorMessage(`Cannot stop Umajin Language Client: ${reason}`);
-				reject(reason);
+			}).catch((error) => {
+				vscode.window.showErrorMessage(`Cannot stop Umajin Language Client: ${error}`);
+				reject(error);
 			});
 		});
 	}
@@ -2829,12 +2829,10 @@ class UmajinExtension {
 					this.log('Language client stopped');
 					this._deleteLanguageClient();
 					resolve(false);
-				}, (reason) => {
-					this.logError(`Failed to stop the Language client: ${reason}`);
-					reject(reason);
-				}).catch((reason) => {
-					this.logError(`Exception caught while trying to stop the Language client: ${reason}`);
-					reject(reason);
+				}).catch((error) => {
+					this.logError(`Failed to stop the Language client: ${error}`);
+					this._deleteLanguageClient();
+					reject(error);
 				});
 			} else {
 				resolve(true);
@@ -2843,7 +2841,6 @@ class UmajinExtension {
 	}
 
 	private _deleteLanguageClient() {
-		delete this._languageClient;
 		this._languageClient = null;
 		this._serverVersion = '';
 	}
@@ -2857,9 +2854,9 @@ class UmajinExtension {
 					vscode.window.showInformationMessage('Umajin Language Client is started.');
 				}
 				resolve(noop);
-			}, (reason) => {
-				vscode.window.showErrorMessage(`Cannot start Umajin Language Client: ${reason}`);
-				reject(reason);
+			}).catch((error) => {
+				vscode.window.showErrorMessage(`Cannot start Umajin Language Client: ${error}`);
+				reject(error);
 			});
 		});
 	}
@@ -2909,12 +2906,9 @@ class UmajinExtension {
 						}
 						this.log('Language client started');
 						resolve(false);
-					}, (reason) => {
-						this.logError(`Failed to start the Language client: ${reason}`);
-						reject(reason);
 					})
 					.catch(error => {
-						this.logError(`Exception caught while trying to start the Language client: ${error}`);
+						this.logError(`Failed to start the Language client: ${error}`);
 						this._deleteLanguageClient();
 						reject(error);
 					});
