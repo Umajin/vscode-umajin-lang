@@ -20,6 +20,8 @@
 
 - Support for new function object types syntax
 
+- A way to redirect log to a file
+
 ### Improved
 
 - Syntax highlighting schemes

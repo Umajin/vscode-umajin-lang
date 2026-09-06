@@ -26,6 +26,7 @@ interface ILaunchRequestArguments extends debugProtocol.DebugProtocol.LaunchRequ
 	logFormatThread?: boolean,
 	logFormatTimestamp?: 'milli' | 'milli_float' | 'micro' | 'world_clock';
 	logLevel?: 'critical' | 'error' | 'warning' | 'info' | 'debug' | 'verbose';
+	logToFile?: string;
 	overrideRootFile?: string;
 	overrideUI?: string;
 }
@@ -3320,18 +3321,23 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 			((simulatePlatform === 'native') || (simulatePlatform === nativePlatform.nameForCompiler));
 
 		let useGui: boolean = ui === "GUI";
-		if (launchRequestArgs.overrideUI !== undefined) {
+		if (launchRequestArgs.overrideUI) {
 			useGui = launchRequestArgs.overrideUI === "GUI";
 		}
 
 		const program: string = useJit ? (useGui ? umajin!.getUmajinGuiFullPath() : umajin!.getUmajinCliFullPath()) : umajin!.getUmajincFullPath();
+
+		let logOutputArgs: string[] = ['--log-output=stderr'];
+		if (launchRequestArgs.logToFile) {
+			logOutputArgs.push(`--log-output=file:${launchRequestArgs.logToFile}`);
+		}
 
 		let reLogMessageString: string = '^(([^:]+):(\\d+)(?::(\\d+))?.*)?\t([^\t]+\t(\\w+)\t(\\w+)';
 		//                                 12     2 3    3_   4    4_   1   5        6   6   7    7
 		//                                 s                                 t*      lp      ll
 
 		let logFormat: string = 's:t';
-		if (launchRequestArgs.logFormatTimestamp !== undefined) {
+		if (launchRequestArgs.logFormatTimestamp) {
 			switch (launchRequestArgs.logFormatTimestamp) {
 				case 'milli':
 					break;
@@ -3350,13 +3356,13 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 			}
 		}
 		logFormat += ':lp:ll';
-		if ((launchRequestArgs.logFormatThread !== undefined) && launchRequestArgs.logFormatThread) {
+		if (launchRequestArgs.logFormatThread) {
 			logFormat += ':h';
 			reLogMessageString += '\t(?:[^\t]*)';
 			//
 			//                       h
 		}
-		if ((launchRequestArgs.logFormatEngineSourceInfo !== undefined) && launchRequestArgs.logFormatEngineSourceInfo) {
+		if (launchRequestArgs.logFormatEngineSourceInfo) {
 			logFormat += ':e';
 			reLogMessageString += '\t(?:[^\t]*)';
 			//
@@ -3369,18 +3375,18 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 		this._reLogMessage = new RegExp(reLogMessageString);
 
 		let logLevel: 'critical' | 'error' | 'warning' | 'info' | 'debug' | 'verbose' = 'info';
-		if (launchRequestArgs.logLevel !== undefined) {
+		if (launchRequestArgs.logLevel) {
 			logLevel = launchRequestArgs.logLevel;
 		}
 
 		let rootFile: string = umajin!.getRoot();
-		if (launchRequestArgs.overrideRootFile !== undefined) {
+		if (launchRequestArgs.overrideRootFile) {
 			rootFile = launchRequestArgs.overrideRootFile;
 		}
 
-		let programArgs: string[] = ['--log-output=stderr', `--log-level=${logLevel}`, `--log-format=${logFormat}`, `--script=${rootFile}`];
+		let programArgs: string[] = logOutputArgs.concat([`--log-level=${logLevel}`, `--log-format=${logFormat}`, `--script=${rootFile}`]);
 		if (this._hasColoriseLog) {
-			programArgs = programArgs.concat(['--colorise-log=no']);
+			programArgs.push('--colorise-log=no');
 		}
 		if (!useJit) {
 			switch (simulatePlatform) {
@@ -3388,38 +3394,38 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 					break;
 
 				case 'windows':
-					programArgs = programArgs.concat(['--target=x86_64-pc-windows-msvc']);
+					programArgs.push('--target=x86_64-pc-windows-msvc');
 					break;
 
 				case 'mac-x86_64':
-					programArgs = programArgs.concat(['--target=x86_64-apple-darwin']);
+					programArgs.push('--target=x86_64-apple-darwin');
 					break;
 
 				case 'mac-arm64':
-					programArgs = programArgs.concat(['--target=arm64-apple-darwin']);
+					programArgs.push('--target=arm64-apple-darwin');
 					break;
 
 				case 'ios':
-					programArgs = programArgs.concat(['--target=arm64-apple-ios']);
+					programArgs.push('--target=arm64-apple-ios');
 					break;
 
 				case 'android':
-					programArgs = programArgs.concat(['--target=aarch64-linux-android']);
+					programArgs.push('--target=aarch64-linux-android');
 					break;
 
 				case 'linux-x86_64':
-					programArgs = programArgs.concat(['--target=x86_64-unknown-linux-gnu']);
+					programArgs.push('--target=x86_64-unknown-linux-gnu');
 					break;
 
 				case 'linux-aarch64':
-					programArgs = programArgs.concat(['--target=aarch64-unknown-linux-gnu']);
+					programArgs.push('--target=aarch64-unknown-linux-gnu');
 					break;
 			}
-			programArgs = programArgs.concat(['--print-llvm-ir=none:']);
+			programArgs.push('--print-llvm-ir=none:');
 		}
 		if (this._hasDebugger && !launchRequestArgs.noDebug) {
 			this._createDebugger();
-			programArgs = programArgs.concat(['--generate-debug-code']);
+			programArgs.push('--generate-debug-code');
 		} else {
 			this._debugger = null;
 		}

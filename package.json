@@ -607,6 +607,12 @@
 									"Verbose"
 								]
 							},
+							"logToFile": {
+								"type": "string",
+								"default": "",
+								"description": "Copy the log to the file",
+								"scope": "window"
+							},
 							"overrideRootFile": {
 								"type": "string",
 								"default": "",
