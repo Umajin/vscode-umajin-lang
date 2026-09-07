@@ -899,22 +899,21 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run vscode-prepublish-esbuild",
-		"vscode-prepublish-esbuild": "npm run esbuild-package -- --minify",
-		"esbuild": "npm run esbuild-base -- --sourcemap",
-		"esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
-		"esbuild-package": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --external:@aws-sdk/client-s3 --format=cjs --platform=node",
-		"vscode-prepublish-webpack": "npm run webpack-package",
-		"webpack": "webpack --mode development",
-		"webpack-watch": "webpack --mode development --watch",
-		"webpack-package": "webpack --mode production --devtool hidden-source-map",
-		"vscode-prepublish-vanilla": "npm run compile",
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./",
-		"lint": "eslint src",
-		"update": "sudo npm install -g @vscode/vsce && npm update --save && npm prune",
-		"build-local": "vsce package",
-		"build-publish": "vsce publish"
+		"vscode:prepublish": "npm run helper:bundle-extension-minified",
+		"helper:prepare-debug": "npm run helper:bundle-extension -- --sourcemap",
+		"helper:bundle-extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --external:@aws-sdk/client-s3 --format=cjs --platform=node",
+		"helper:bundle-extension-minified": "npm run helper:bundle-extension -- --minify",
+
+		"bump-major-version": "npm version --no-git-tag-version -- major",
+		"bump-minor-version": "npm version --no-git-tag-version -- minor",
+		"bump-patch-version": "npm version --no-git-tag-version -- patch",
+		"after-manual-version-change": "npm install --package-lock-only --ignore-scripts",
+		"update-dependencies": "sudo npm install -g @vscode/vsce && npm update --save && npm prune",
+
+		"check": "eslint src && tsc --noEmit -p ./",
+
+		"build-package": "vsce package --no-dependencies",
+		"build-publish": "vsce publish --no-dependencies"
 	},
 	"engines": {
 		"vscode": "^1.99.1"
@@ -942,10 +941,7 @@
 		"@vscode/vsce": "^3.9.2",
 		"esbuild": "^0.25.12",
 		"eslint": "^10.9.1",
-		"ts-loader": "^9.6.2",
-		"typescript": "^5.9.3",
-		"webpack": "^5.110.2",
-		"webpack-cli": "^6.0.1"
+		"typescript": "^5.9.3"
 	},
 	"http.proxySupport": "off",
 	"allowScripts": {

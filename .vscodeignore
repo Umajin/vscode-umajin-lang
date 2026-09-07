@@ -2,11 +2,12 @@
 .vscode-test/
 .gitignore
 .eslintrc.json
+eslint.config.mjs
 vsc-extension-quickstart.md
 tsconfig.json
-webpack.config.js
 *.vsix
 src/
+out/*.map
 node_modules/
 !node_modules/vscode-{jsonrpc,language{client,server-{protocol,types}}}/
 !node_modules/{semver,lru-cache,yallist}/

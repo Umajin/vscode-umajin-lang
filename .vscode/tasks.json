@@ -5,26 +5,14 @@
 	"tasks": [
 		{
 			"type": "npm",
-			"script": "watch",
-			"problemMatcher": "$tsc-watch",
-			"isBackground": true,
-			"presentation": {
-				"reveal": "never"
-			},
-			"group": "build",
-			"label": "npm: watch",
-			"detail": "tsc -watch -p ./"
-		},
-		{
-			"type": "npm",
-			"script": "compile",
+			"script": "helper:prepare-debug",
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			},
 			"problemMatcher": [],
-			"label": "npm: compile",
-			"detail": "tsc -p ./"
+			"label": "npm: helper:prepare-debug",
+			"detail": "npm run helper:prepare-debug"
 		}
 	]
 }

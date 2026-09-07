@@ -30,6 +30,8 @@
 
 - Use VSCode API to open help
 
+- Extension packaging (it's less than half the size now!)
+
 ### Fixed
 
 - `platform-redirector` for Mac
