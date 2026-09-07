@@ -2215,6 +2215,7 @@ class UmajinExtension {
 		this._log = vscode.window.createOutputChannel("Umajin");
 
 		this._context.subscriptions.push(
+			this._log,
 			vscode.commands.registerCommand('umajin.generateStdLib', this.generateStdLib, this),
 			vscode.commands.registerCommand('umajin.generateWorkspace', this.generateWorkspace, this),
 			vscode.commands.registerCommand('umajin.applyAllCodeActions', this.applyAllCodeActions, this),
@@ -3041,11 +3042,13 @@ class UmajinExtension {
 let umajin: UmajinExtension | null = null;
 
 export function activate(context: vscode.ExtensionContext): void {
-	vscode.workspace.onDidChangeConfiguration(event => {
-		if (umajin) {
-			umajin.updateConfiguration(event);
-		}
-	});
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration(event => {
+			if (umajin) {
+				umajin.updateConfiguration(event);
+			}
+		})
+	);
 
 	umajin = new UmajinExtension(context);
 }
