@@ -58,6 +58,7 @@ class Platform {
 
 	public readonly isX64: boolean;
 	public readonly isArm64: boolean;
+	public readonly isSupported: boolean;
 
 	public static readonly WindowsPlatformName: string = 'win32';
 	public static readonly MacPlatformName: string = 'darwin';
@@ -81,6 +82,10 @@ class Platform {
 
 		this.isX64 = (architectureName === Platform.X64ArchitectureName);
 		this.isArm64 = (architectureName === Platform.Arm64ArchitectureName);
+		this.isSupported =
+			(this.isWindows && this.isX64) ||
+			(this.isMac && this.isArm64) ||
+			(this.isLinux && (this.isX64 || this.isArm64));
 
 		this.configGenericSuffix =
 			this.isWindows ?
@@ -3042,6 +3047,14 @@ class UmajinExtension {
 let umajin: UmajinExtension | null = null;
 
 export function activate(context: vscode.ExtensionContext): void {
+	if (!nativePlatform.isSupported) {
+		vscode.window.showErrorMessage(
+			`Umajin Language extension does not support ${os.platform()} (${os.arch()}). ` +
+			'Supported platforms are Windows x64, macOS arm64, Linux x64, and Linux arm64.'
+		);
+		return;
+	}
+
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(event => {
 			if (umajin) {
