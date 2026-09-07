@@ -130,20 +130,6 @@ class Platform {
 			this.binName(name);
 	};
 
-	public open(): string {
-		return this.isWindows ?
-			(`${process.env['SYSTEMROOT']}\\System32\\WindowsPowerShell\\v1.0\\powershell`
-				+ ' -NoProfile'
-				+ ' -NonInteractive'
-				+ ' -ExecutionPolicy'
-				+ ' Bypass'
-				+ ' start') : (
-				this.isMac ?
-					'open' :
-					/* this.isLinux */ 'xdg-open'
-			);
-	}
-
 };
 
 const nativePlatform: Platform = new Platform(os.platform(), os.arch());
@@ -3007,12 +2993,9 @@ class UmajinExtension {
 					}
 				}
 			}
-			if (useLocal) {
-				fullPath = `file://${fullPath}`;
-			}
-			else {
-				fullPath = remote + path;
-			}
+			let documentationUri: vscode.Uri = useLocal ?
+				vscode.Uri.file(fullPath) :
+				vscode.Uri.parse(remote + path);
 
 			if (section !== '') {
 				if (section.includes('operator ')) {
@@ -3040,9 +3023,16 @@ class UmajinExtension {
 					.replace(',', '-')
 					.replace('(', '-')
 					.replace(')', '');
-				fullPath += '#' + section;
+				documentationUri = documentationUri.with({ fragment: section });
 			}
-			childProcess.exec(`${nativePlatform.open()} "${fullPath}"`);
+
+			try {
+				if (!await vscode.env.openExternal(documentationUri)) {
+					this.reportFailure(`Cannot open Umajin Engine documentation: ${documentationUri.toString()}`);
+				}
+			} catch (error) {
+				this.reportFailure(`Cannot open Umajin Engine documentation: ${error}`);
+			}
 
 		}
 	}

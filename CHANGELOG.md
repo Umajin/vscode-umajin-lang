@@ -28,6 +28,8 @@
 
 - Syntax highlighting schemes
 
+- Use VSCode API to open help
+
 ### Fixed
 
 - `platform-redirector` for Mac
