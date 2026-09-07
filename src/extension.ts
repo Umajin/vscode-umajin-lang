@@ -1153,7 +1153,7 @@ class EngineUpdateContext {
 											+ '   • "System" > "Advanced",                        '
 											+ '   • or somewhere else.');
 									} else {
-										this._ext.reportFailure(`Failed to test symlink creation: Failed to remove: ${errno}`);
+										this._ext.reportFailure(`Failed to test symlink creation: Failed to create symbolic link: ${errno}`);
 									}
 								} else {
 									fs.rm(symlink, { recursive: true, force: true }, (errno) => {
@@ -1667,7 +1667,7 @@ class EngineUpdateContext {
 
 				const makeSymlink = (filename: string, target: string, attempts: number, delay: number) => {
 					if (attempts === 0) {
-						this._ext.reportFailureAndReject(reject, `Failed to creating symlink "${filename}"`);
+						this._ext.reportFailureAndReject(reject, `Failed to create symlink "${filename}"`);
 					} else {
 						this._ext.log(`Creating symlink "${filename}" pointing at "${target}"...`);
 						fs.symlink(target, filename, (errno) => {
@@ -1688,7 +1688,7 @@ class EngineUpdateContext {
 					this._ext.log(`Creating folders for symlink "${filename}"...`);
 					fs.mkdir(path.dirname(filename), { recursive: true }, (errno) => {
 						if (errno !== null) {
-							this._ext.reportFailureAndReject(reject, `Failed to create directory ${path.dirname(filename)}":${errno}`);
+							this._ext.reportFailureAndReject(reject, `Failed to create directory "${path.dirname(filename)}": ${errno}`);
 						} else {
 							this._ext.log(`Folders created for symlink "${filename}"`);
 							makeSymlink(filename, target, attempts, delay);
@@ -1835,7 +1835,7 @@ class EngineUpdateContext {
 									recreateFile(filename);
 								}
 							} else {
-								this._ext.log(`Failed to check file: "${filename}"${errno}`);
+								this._ext.log(`Failed to check file "${filename}": ${errno}`);
 								createFile(filename);
 							}
 						});
