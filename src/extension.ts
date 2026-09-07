@@ -3050,10 +3050,12 @@ export function activate(context: vscode.ExtensionContext): void {
 	umajin = new UmajinExtension(context);
 }
 
-export function deactivate(): void {
-	if (umajin) {
-		umajin.destruct();
-		umajin = null;
+export async function deactivate(): Promise<void> {
+	const umajinToDeactivate: UmajinExtension | null = umajin;
+	// Prevent configuration callbacks from using the extension while it is shutting down.
+	umajin = null;
+	if (umajinToDeactivate) {
+		await umajinToDeactivate.destruct();
 	}
 }
 
