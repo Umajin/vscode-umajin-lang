@@ -600,15 +600,15 @@ class EngineUpdateContext {
 								const filename: string = dirent.parentPath + path.sep + dirent.name;
 								fs.readlink(filename, (errno, linkString: string) => {
 									if (errno !== null) {
-										this._ext.logError(`Cannot read link "${filename}: ${errno}`);
+										this._ext.logError(`Cannot read link "${filename}": ${errno}`);
 									} else {
 										if (linkString === platformRedirectorName) {
 											this._ext.log(`File "${dirent.name}" is redirected`);
 											this._redirectedBinaries.add(filename);
 											// this._hasPlatformRedirector = true;
 										}
-										progress.partFinished();
 									}
+									progress.partFinished();
 								});
 								// } else if (dirent.isFile()) {
 								// 	if (dirent.name === platformRedirectorName) {

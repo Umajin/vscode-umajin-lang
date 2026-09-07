@@ -38,6 +38,8 @@
 
 - Stopping/restarting the language server when it was not running
 
+- Hang while reading a broken file or symlink during an engine update
+
 ## [1.9.6] - 2026-05-22
 
 ### Fixed
