@@ -1,33 +1,34 @@
 # Umajin Language for Visual Studio Code
 
-A Visual Studio Code extension that add support for the Umajin language.
+A Visual Studio Code extension that adds support for the Umajin language.
 
 ## Getting started
 
-A good point to start is before opening any umajin file is to generate a workspace file.
-Open command pallette and run command "**Generate Umajin VSCode Workspace file**"
+While you can just open a Umajin file and start editing, it is more beneficial to have a project.
+This way you'll get the full language support from the Umajin Language Server.
+To achieve that, open the Command Palette and run the command "**Generate Umajin VS Code Workspace File**":
 
-![Generate Umajin VSCode Workspace file command](/images/generate-workspace-file-step1.png)
+![Generate Umajin VS Code Workspace File command](/images/generate-workspace-file-step1.png)
 
-Select the start umajin file.
+Select the start Umajin file.
 
-Auto-generated workspace file will be opened. Save it.
+The auto-generated workspace file will be opened. Save it.
 
-You can immediately open this newly created workspace via the button in the bottom right corner:
+You can immediately open this newly created workspace via the button in the bottom-right corner:
 
 ![Open Workspace button](/images/generate-workspace-file-step2.png)
 
-If the Umajin Language Server is not in the root folder of your project you can modify it in settings (`umajin.path.languageServer`).
+If the Umajin Language Server executable is not located directly in the project root (for example, if it is in a subfolder or elsewhere outside the project folder), use `umajin.path.languageServer` in your settings to point to it.
 
-Also note that you can re-generate the standard library with "**Generate Umajin standard library**" command.
+Also note that you can re-generate the standard library with the "**Generate Umajin Standard Library**" command.
 
 If your project was ported from an old compiler syntax and/or triggers many diagnostics, try "**Apply all code actions in Umajin project**" command.
 
-## Swithcing branches on Windows
+## Switching branches on Windows
 
-Since Umajin Language Server is usually tracked by a source version control and Windows locks launched executable files it is problematic to switch a branch while the Language Server is running.
+Since the Umajin Language Server is usually tracked by source control and Windows locks executable files while they are running, switching branches while the Language Server is running can be problematic.
 
-To overcome this problem there are commands to manually stop it before and start it after the branch switching.
+To overcome this problem, there are commands to stop it manually before switching branches and start it afterward.
 
 The commands are called:
 
@@ -37,7 +38,7 @@ The commands are called:
 
 - `Report the status of Umajin Language Client`.
 
-They all output the outcome with a message in the bottom right corner.
+They all report the outcome in a message in the bottom-right corner.
 
 ## Features
 
@@ -65,7 +66,7 @@ This extension relies on Umajin Language Server to provide support using an up-t
 
 - Contextual code completion
 
-- Scopes folding and brackets jumping
+- Scope folding and bracket jumping
 
 - Auto-formatting of all files, open files, current file, or a fragment in a file
 
@@ -644,6 +645,6 @@ Here is a sample of log output highlighting settings based on log levels and one
 }
 ```
 
-Rules apply in the order they appear in the settings. All colours of matching rules mixed together. For `bold` and `italic` parameters the last matching rule where it is set to "on" or "off" wins.
+Rules apply in the order they appear in the settings. All colours of matching rules are mixed together. For `bold` and `italic` parameters the last matching rule where it is set to "on" or "off" wins.
 
 The log entry is not shown if at least one "remove" `action` matches.

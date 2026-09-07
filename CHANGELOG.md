@@ -28,9 +28,9 @@
 
 - Syntax highlighting schemes
 
-- Use VSCode API to open help
+- Use the VS Code API to open help
 
-- Extension packaging (it's less than half the size now!)
+- Reduce the extension package size by more than half
 
 ### Fixed
 
@@ -66,11 +66,11 @@
 
 ### Fixed
 
-- Generation of the VSCode workspace file (was broken since version 1.9.0)
+- Generation of the VS Code workspace file (had been broken since version 1.9.0)
 
 ### Improved
 
-- The name of a generated VSCode workspace file now includes the folder name to differentiate between multiple open projects as majority of them were named `start`.
+- The name of a generated VS Code workspace file now includes the folder name to distinguish multiple open projects, because most were named `start`.
 
 ## [1.9.1] - 2026-04-17
 
@@ -114,7 +114,7 @@
 
 ### Fixed
 
-- VSCode version compatibility
+- VS Code version compatibility
 
 ## [1.8.0] - 2025-04-11
 
@@ -270,7 +270,7 @@
 
 ### Fixed
 
-- Auto-generated Umajin VSCode Workspace file structure fixed (umajin.root was misplaced)
+- Auto-generated Umajin VS Code workspace file structure (`umajin.root` was misplaced)
 
 ## [1.1.2] - 2022-06-14
 
@@ -288,7 +288,7 @@
 
 ### Added
 
-- Automated Umajin VSCode Workspace generation (use "Generate Umajin VSCode Workspace file" command)
+- Automated Umajin VS Code workspace generation (use the "Generate Umajin VS Code Workspace File" command)
 
 - The extension is now bundled
 

@@ -1,7 +1,7 @@
 {
 	"name": "umajin-lang",
 	"displayName": "Umajin Language",
-	"description": "Provide Umajin language support for Visual Studio Code.",
+	"description": "Provides Umajin language support for Visual Studio Code.",
 	"version": "1.10.0",
 	"license": "MIT",
 	"publisher": "umajin-kuzmashapran",
@@ -56,7 +56,7 @@
 				"command": "umajin.generateStdLib"
 			},
 			{
-				"title": "Generate Umajin VSCode Workspace file",
+				"title": "Generate Umajin VS Code Workspace File",
 				"command": "umajin.generateWorkspace"
 			},
 			{
