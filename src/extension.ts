@@ -150,7 +150,6 @@ const nativePlatform: Platform = new Platform(os.platform(), os.arch());
 
 
 const operatorSymbols: Record<string, string> = {
-	/* eslint-disable @typescript-eslint/naming-convention */
 	'-': 'minus',
 	'!': 'excl',
 	'~': 'tilde',
@@ -165,7 +164,6 @@ const operatorSymbols: Record<string, string> = {
 	'<': 'less',
 	'>': 'greater',
 	'[]': 'brackets',
-	/* eslint-enable @typescript-eslint/naming-convention */
 };
 
 
@@ -2125,7 +2123,7 @@ class EngineUpdateContext {
 														recursive: true,
 														mode: ((file.externalFileAttributes & 0x1ff0000) !== 0) ? (file.externalFileAttributes & 0x1ff0000) >> 16 : undefined
 													}, (errno) => {
-														if (errno == null) {
+														if (errno === null) {
 															onUnzipped();
 														} else {
 															this._ext.reportFailureAndReject(reject, `Failed to create directory "${file.path}" while unpacking "${zipname}": ${errno}`);
@@ -2384,7 +2382,7 @@ class UmajinExtension {
 		} else {
 			this.log(`Generating stdlib.u using "${umajinJitFullPath}", attempts remaining: ${attempts}, checking the access...`);
 			fs.access(umajinJitFullPath, fs.constants.R_OK | fs.constants.X_OK, (errno) => {
-				if (errno != null) {
+				if (errno !== null) {
 					this.logError(`Cannot check "read+execute" access of "${umajinJitFullPath}": ${errno}`);
 					callback(false);
 				} else {
@@ -2465,9 +2463,7 @@ class UmajinExtension {
 			title: 'Select start file',
 			canSelectMany: false,
 			filters: {
-				// eslint-disable-next-line @typescript-eslint/naming-convention
 				'Umajin files': ['u'],
-				// eslint-disable-next-line @typescript-eslint/naming-convention
 				'All files': ['*']
 			}
 		}).then((rootFileUri) => {
@@ -3184,7 +3180,6 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 	private _logSyncingPrintables: number = 0;
 
 	// It should _binary_ match the message printed by the JIT Engine
-	// eslint-disable-next-line @typescript-eslint/naming-convention
 	private static readonly _EIDPortMessage: string = "Embedded Intrusive Debugger port: ";
 
 	private static readonly _specialArgs = new Set<string>(['--log-output', '--log-level', '-L', '--log-format', '-F', '--script', '--colorise-log', '-C', '--target', '--print-llvm-ir', '-o', '--generate-debug-code', '-d']);
