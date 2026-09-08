@@ -14,6 +14,12 @@
 
 - Improved performance
 
+## [1.10.1] - 2026-09-08
+
+### Fixed
+
+- Deprecated field is removed from the default code-workspace file
+
 ## [1.10.0] - 2026-09-08
 
 ### Added
