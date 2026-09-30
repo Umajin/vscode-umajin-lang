@@ -14,6 +14,12 @@
 
 - Improved performance
 
+## [1.10.2] - 2026-09-30
+
+### Added
+
+- Support for the log output short option (`-l`)
+
 ## [1.10.1] - 2026-09-08
 
 ### Fixed

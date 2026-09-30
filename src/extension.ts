@@ -3190,7 +3190,7 @@ class UmajinDebugSession extends debugAdapter.LoggingDebugSession {
 	// It should _binary_ match the message printed by the JIT Engine
 	private static readonly _EIDPortMessage: string = "Embedded Intrusive Debugger port: ";
 
-	private static readonly _specialArgs = new Set<string>(['--log-output', '--log-level', '-L', '--log-format', '-F', '--script', '--colorise-log', '-C', '--target', '--print-llvm-ir', '-o', '--generate-debug-code', '-d']);
+	private static readonly _specialArgs = new Set<string>(['--log-output', '-l', '--log-level', '-L', '--log-format', '-F', '--script', '--colorise-log', '-C', '--target', '--print-llvm-ir', '-o', '--generate-debug-code', '-d']);
 
 
 	public constructor() {

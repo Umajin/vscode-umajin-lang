@@ -2,7 +2,7 @@
 	"name": "umajin-lang",
 	"displayName": "Umajin Language",
 	"description": "Provides Umajin language support for Visual Studio Code.",
-	"version": "1.10.1",
+	"version": "1.10.2",
 	"license": "MIT",
 	"publisher": "umajin-kuzmashapran",
 	"private": false,
@@ -903,15 +903,12 @@
 		"helper:prepare-debug": "npm run helper:bundle-extension -- --sourcemap",
 		"helper:bundle-extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --external:@aws-sdk/client-s3 --format=cjs --platform=node",
 		"helper:bundle-extension-minified": "npm run helper:bundle-extension -- --minify",
-
 		"bump-major-version": "npm version --no-git-tag-version -- major",
 		"bump-minor-version": "npm version --no-git-tag-version -- minor",
 		"bump-patch-version": "npm version --no-git-tag-version -- patch",
 		"after-manual-version-change": "npm install --package-lock-only --ignore-scripts",
 		"update-dependencies": "sudo npm install -g @vscode/vsce && npm update --save && npm prune",
-
 		"check": "eslint src && tsc --noEmit -p ./",
-
 		"build-package": "vsce package --no-dependencies",
 		"build-publish": "vsce publish --no-dependencies"
 	},
@@ -926,15 +923,15 @@
 		"vscode-languageclient": "^9.0.1"
 	},
 	"devDependencies": {
-		"@types/node": "^22.20.1",
+		"@types/node": "^22.20.4",
 		"@types/semver": "^7.8.0",
 		"@types/unzipper": "^0.10.11",
 		"@types/vscode": "1.60.0",
-		"@typescript-eslint/eslint-plugin": "^8.69.0",
-		"@typescript-eslint/parser": "^8.69.0",
-		"@vscode/vsce": "^3.9.2",
+		"@typescript-eslint/eslint-plugin": "^8.71.0",
+		"@typescript-eslint/parser": "^8.71.0",
+		"@vscode/vsce": "^4.0.0",
 		"esbuild": "^0.25.12",
-		"eslint": "^10.10.0",
+		"eslint": "^10.11.0",
 		"typescript": "^5.9.3"
 	},
 	"http.proxySupport": "off",
